@@ -28,8 +28,7 @@ def poker(bot, update):
     message = update.message
     chat = message['chat']
     update.message.reply_text(text=you)
-def five(bot, update):
-    
+def five(bot, update): 
     lis=draw_five()
     you=lis[0]
     red=lis[1]
@@ -44,7 +43,6 @@ def roll(bot, update):
     message = update.message
     chat = message['chat']
     update.message.reply_text(text="本次事件为："+result)
-
 def reset(bot, update):
     event.event_list=['失控','好梦在何方','教徒居所','机械之灾','余烬方阵']
     message = update.message
