@@ -6,8 +6,8 @@ def read_data():
 def write_data(attr,value):
     load_data=read_data()
     load_data[attr]=value
-    with open("data.json",'w',encoding='utf-8') as f:
-        json.dump(load_data, f,ensure_ascii=False)
+    with open("data.json",'w',encoding='utf-8') as load_f:
+        json.dump(load_data, load_f,ensure_ascii=False)
 def get_data(attr):
     load_data=read_data()
     return load_data[attr]
