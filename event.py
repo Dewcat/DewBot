@@ -20,6 +20,7 @@ def dice_town():
     u=random.choice(event_list_town)
     if(u== "变卖身家" or u=="是非黑白" or u=="狂徒妄念"):
         drop_event("event_list_town.json",u)
+    return u
 def reset():
     event_list_forest=["打发时间","不期而遇","眼观六路","耳听八方","珍禽异兽","所见即所得","似曾相识","无知是福","探险小队","狭路相逢","森林哨兵","医者之志"]
     event_list_town=["兽本运作","变卖身家","摊贩经济","狂徒妄念","是非黑白","冒险委托"]
