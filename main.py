@@ -52,6 +52,28 @@ def reset(bot, update):
     event.reset()
     update.message.reply_text(text="事件重置完毕")
 
+def add_forest(bot, update):
+    txt=update.message.text[12:]
+    event.add_event("event_list_forest.json",txt)
+    update.message.reply_text(text="已增加森林事件："+txt)
+def add_town(bot, update):
+    txt=update.message.text[10:]
+    event.add_event("event_list_town.json",txt)
+    update.message.reply_text(text="已增加城镇事件："+txt)
+def drop_forest(bot, update):
+    txt=update.message.text[13:]
+    event.drop_event("event_list_forest.json",txt)
+    update.message.reply_text(text="已删除森林事件："+txt)
+def drop_town(bot, update):
+    txt=update.message.text[11:]
+    event.drop_event("event_list_town.json",txt)
+    update.message.reply_text(text="已删除城镇事件："+txt)
+
+
+
+# def endgame(bot, update):
+
+
 def VIS_check(context,update):
     txt=check.result("VIS")
     update.message.reply_text(text=txt)
@@ -116,11 +138,16 @@ dispatch.add_handler(CommandHandler('forest',forest))
 dispatch.add_handler(CommandHandler('town',town))
 dispatch.add_handler(CommandHandler('reset', reset))
 
+dispatch.add_handler(CommandHandler('add_forest', add_forest))
+dispatch.add_handler(CommandHandler('add_town', add_town))
+dispatch.add_handler(CommandHandler('drop_forest', drop_forest))
+dispatch.add_handler(CommandHandler('drop_town', drop_town))
+
 filter_VIS=Filters.regex("侦查检定")
 dispatch.add_handler(MessageHandler(filter_VIS,VIS_check))
 filter_SEN=Filters.regex("聆听检定")
 dispatch.add_handler(MessageHandler(filter_SEN,SEN_check))
-filter_COV=Filters.regex("交涉检定")
+filter_COV=Filters.regex("交涉检定|威慑检定|魅惑检定")
 dispatch.add_handler(MessageHandler(filter_COV,COV_check))
 
 filter_VIS_add=Filters.regex("增加\d+点侦查")
