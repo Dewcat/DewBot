@@ -2,18 +2,83 @@ from telegram.ext import Application, CommandHandler, CallbackContext
 from telegram import Update
 import logging
 from game.dice import DiceGame
-from database.queries import get_skill_info, get_character_stats
+from database.queries import get_skill_info, get_character_stats, update_character_health, reset_character_stats, update_character_strength, update_character_weakness
 
-token = ""
+token = "5769924134:AAFr2m3_mr_HbOdO42Mt8MUGAxFAaG4E4Yg"
 
 # 初始化
 application = Application.builder().token(token).proxy('socks5://127.0.0.1:7890').build()
 
 # 启动函数
 async def start(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text('欢迎来到掷骰游戏！使用 /battle 命令开始游戏。')
+    await update.message.reply_text('miamiamia')
 
-# 掷骰函数
+# 重置函数
+async def reset(update: Update, context: CallbackContext) -> None:
+    reset_character_stats()
+    await update.message.reply_text('角色状态已恢复。')
+
+# 修改强壮层数函数
+async def strength(update: Update, context: CallbackContext) -> None:
+    args = context.args
+    if len(args) != 2:
+        await update.message.reply_text('请提供角色名称和修改的强壮层数。格式: /strength 角色名 层数')
+        return
+
+    character_name, strength_change = args
+    strength_change = int(strength_change)
+    update_character_strength(character_name, strength_change)
+    action = "增加" if strength_change > 0 else "减少"
+    await update.message.reply_text(f'{character_name} 的强壮层数{action}了 {abs(strength_change)}。')
+
+# 修改虚弱层数函数
+async def weakness(update: Update, context: CallbackContext) -> None:
+    args = context.args
+    if len(args) != 2:
+        await update.message.reply_text('请提供角色名称和修改的虚弱层数。格式: /weakness 角色名 层数')
+        return
+
+    character_name, weakness_change = args
+    weakness_change = int(weakness_change)
+    update_character_weakness(character_name, weakness_change)
+    action = "增加" if weakness_change > 0 else "减少"
+    await update.message.reply_text(f'{character_name} 的虚弱层数{action}了 {abs(weakness_change)}。')
+
+# 获取角色和技能详细信息的通用函数
+def get_info(player_name, player_skill_name, opponent_name, opponent_skill_name):
+    player_stats = get_character_stats(player_name)
+    opponent_stats = get_character_stats(opponent_name)
+    player_skill = get_skill_info(player_skill_name)
+    opponent_skill = get_skill_info(opponent_skill_name)
+
+    player_stats = {
+        'name': player_stats[1],
+        'health': player_stats[2],
+        'strength': player_stats[4],
+        'weakness': player_stats[5]
+    }
+    opponent_stats = {
+        'name': opponent_stats[1],
+        'health': opponent_stats[2],
+        'strength': opponent_stats[4],
+        'weakness': opponent_stats[5]
+    }
+    player_skill = {
+        'name': player_skill[1],
+        'base_value': player_skill[2],
+        'num_dice': player_skill[3],
+        'dice_range': (player_skill[4], player_skill[5])
+    }
+    opponent_skill = {
+        'name': opponent_skill[1],
+        'base_value': opponent_skill[2],
+        'num_dice': opponent_skill[3],
+        'dice_range': (opponent_skill[4], opponent_skill[5])
+    }
+
+    return player_stats, player_skill, opponent_stats, opponent_skill
+
+# 战斗函数
 async def battle(update: Update, context: CallbackContext) -> None:
     args = context.args
     if len(args) < 4:
@@ -21,10 +86,7 @@ async def battle(update: Update, context: CallbackContext) -> None:
         return
 
     player_name, player_skill_name, opponent_name, opponent_skill_name = args
-    player_stats = list(get_character_stats(player_name))
-    opponent_stats = list(get_character_stats(opponent_name))
-    player_skill = list(get_skill_info(player_skill_name))
-    opponent_skill = list(get_skill_info(opponent_skill_name))
+    player_stats, player_skill, opponent_stats, opponent_skill = get_info(player_name, player_skill_name, opponent_name, opponent_skill_name)
 
     print(f'player_stats: {player_stats}')
     print(f'opponent_stats: {opponent_stats}')
@@ -35,38 +97,84 @@ async def battle(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text('角色或技能信息无效。')
         return
 
-    dice_game = DiceGame(player_name, opponent_name, player_skill, opponent_skill)
+    dice_game = DiceGame(player_stats, opponent_stats, player_skill, opponent_skill)
     while True:
-        roll1 = dice_game.roll_dice(player_skill[3], player_skill[4:6])
-        roll2 = dice_game.roll_dice(opponent_skill[3], opponent_skill[4:6])
+        roll1 = dice_game.roll_dice(player_skill['num_dice'], player_skill['dice_range'], player_stats['strength'], player_stats['weakness'])
+        roll2 = dice_game.roll_dice(opponent_skill['num_dice'], opponent_skill['dice_range'], opponent_stats['strength'], opponent_stats['weakness'])
         print(f'roll1: {roll1}')
         print(f'roll2: {roll2}')
-        result1 = dice_game.calculate_result(player_skill[2], roll1)
-        result2 = dice_game.calculate_result(opponent_skill[2], roll2)
-        player_roll_str = f'{player_stats[1]}: {player_skill[1]}: {player_skill[2]} + ' + ' + '.join(map(str, roll1)) + f' = {result1}'
-        opponent_roll_str = f'{opponent_stats[1]}: {opponent_skill[1]}: {opponent_skill[2]} + ' + ' + '.join(map(str, roll2)) + f' = {result2}'
+        result1 = dice_game.calculate_result(player_skill['base_value'], roll1)
+        result2 = dice_game.calculate_result(opponent_skill['base_value'], roll2)
+        player_roll_str = f'{player_stats["name"]}: {player_skill["name"]}: {player_skill["base_value"]} + ' + ' + '.join(map(str, roll1)) + f' = {result1}'
+        opponent_roll_str = f'{opponent_stats["name"]}: {opponent_skill["name"]}: {opponent_skill["base_value"]} + ' + ' + '.join(map(str, roll2)) + f' = {result2}'
         result_message = f"{player_roll_str}\n{opponent_roll_str}"
         if result1 > result2:
-            result_message += f"\n{player_stats[1]} 胜利"
+            result_message += f"\n{player_stats['name']} 胜利"
         elif result2 > result1:
-            result_message += f"\n{opponent_stats[1]} 胜利"
+            result_message += f"\n{opponent_stats['name']} 胜利"
         else:
             result_message += "\n不分胜负"
         await update.message.reply_text(result_message)
         if result1 > result2:
-            opponent_skill[3] -= 1
-            if opponent_skill[3] == 0:
+            opponent_skill['num_dice'] -= 1
+            if opponent_skill['num_dice'] == 0:
                 damage = result1
-                opponent_stats[2] -= damage
-                await update.message.reply_text(f'{player_stats[1]} 胜利，造成{damage}点伤害')
+                opponent_stats['health'] -= damage
+                update_character_health(opponent_stats['name'], opponent_stats['health'])
+                await update.message.reply_text(f'{player_stats["name"]} 胜利，造成{damage}点伤害')
+                if opponent_stats['health'] <= 0:
+                    await update.message.reply_text(f'{opponent_stats["name"]} 倒下了')
                 break
         elif result2 > result1:
-            player_skill[3] -= 1
-            if player_skill[3] == 0:
+            player_skill['num_dice'] -= 1
+            if player_skill['num_dice'] == 0:
                 damage = result2
-                player_stats[2] -= damage
-                await update.message.reply_text(f'{opponent_stats[1]} 胜利，造成{damage}点伤害')
+                player_stats['health'] -= damage
+                update_character_health(player_stats['name'], player_stats['health'])
+                await update.message.reply_text(f'{opponent_stats["name"]} 胜利，造成{damage}点伤害')
+                if player_stats['health'] <= 0:
+                    await update.message.reply_text(f'{player_stats["name"]} 倒下了')
                 break
+
+# 防守函数
+async def defense(update: Update, context: CallbackContext) -> None:
+    args = context.args
+    if len(args) < 4:
+        await update.message.reply_text('请提供两个角色名称和两个技能名称。格式: /defense 角色1 技能1 角色2 技能2')
+        return
+
+    player_name, player_skill_name, opponent_name, opponent_skill_name = args
+    player_stats, player_skill, opponent_stats, opponent_skill = get_info(player_name, player_skill_name, opponent_name, opponent_skill_name)
+
+    print(f'player_stats: {player_stats}')
+    print(f'opponent_stats: {opponent_stats}')
+    print(f'player_skill: {player_skill}')
+    print(f'opponent_skill: {opponent_skill}')
+
+    if not player_stats or not opponent_stats or not player_skill or not opponent_skill:
+        await update.message.reply_text('角色或技能信息无效。')
+        return
+
+    dice_game = DiceGame(player_stats, opponent_stats, player_skill, opponent_skill)
+    roll1 = dice_game.roll_dice(player_skill['num_dice'], player_skill['dice_range'], player_stats['strength'], player_stats['weakness'])
+    roll2 = dice_game.roll_dice(opponent_skill['num_dice'], opponent_skill['dice_range'], opponent_stats['strength'], opponent_stats['weakness'])
+    print(f'roll1: {roll1}')
+    print(f'roll2: {roll2}')
+    result1 = dice_game.calculate_result(player_skill['base_value'], roll1)
+    result2 = dice_game.calculate_result(opponent_skill['base_value'], roll2)
+    player_roll_str = f'{player_stats["name"]}: {player_skill["name"]}: {player_skill["base_value"]} + ' + ' + '.join(map(str, roll1)) + f' = {result1}'
+    opponent_roll_str = f'{opponent_stats["name"]}: {opponent_skill["name"]}: {opponent_skill["base_value"]} + ' + ' + '.join(map(str, roll2)) + f' = {result2}'
+    result_message = f"{player_roll_str}\n{opponent_roll_str}"
+    if result2 > result1:
+        damage = result2 - result1
+        player_stats['health'] -= damage
+        update_character_health(player_stats['name'], player_stats['health'])
+        result_message += f"\n{player_stats['name']} 的防御被破坏，受到 {damage} 点伤害"
+        if player_stats['health'] <= 0:
+            result_message += f"\n{player_stats['name']} 倒下了"
+    else:
+        result_message += f"\n{player_stats['name']} 成功防守，没有受到伤害"
+    await update.message.reply_text(result_message)
 
 # 错误处理函数
 def error(update: Update, context: CallbackContext) -> None:
@@ -74,7 +182,11 @@ def error(update: Update, context: CallbackContext) -> None:
 
 # 处理命令和消息
 application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("reset", reset))
 application.add_handler(CommandHandler("battle", battle))
+application.add_handler(CommandHandler("defense", defense))
+application.add_handler(CommandHandler("strength", strength))
+application.add_handler(CommandHandler("weakness", weakness))
 application.add_error_handler(error)
 
 # 启动Bot

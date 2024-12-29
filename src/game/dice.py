@@ -7,8 +7,8 @@ class DiceGame:
         self.skill1 = skill1
         self.skill2 = skill2
 
-    def roll_dice(self, num_dice, dice_range):
-        return [randint(dice_range[0], dice_range[1]) for _ in range(num_dice)]
+    def roll_dice(self, num_dice, dice_range, strength, weakness):
+        return [max(0, randint(dice_range[0], dice_range[1]) + strength - weakness) for _ in range(num_dice)]
 
     def calculate_result(self, base_value, roll_results):
         return base_value + sum(roll_results)
