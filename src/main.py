@@ -1,17 +1,20 @@
-from telegram.ext import Application, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, CallbackContext, ConversationHandler, MessageHandler, filters
 from telegram import Update
 import logging
 from game.dice import DiceGame
 from database.queries import get_skill_info, get_character_stats, update_character_health, reset_character_stats, update_character_strength, update_character_weakness
 
-token = "5769924134:AAFr2m3_mr_HbOdO42Mt8MUGAxFAaG4E4Yg"
+token = ""
 
 # 初始化
 application = Application.builder().token(token).proxy('socks5://127.0.0.1:7890').build()
 
+# 定义状态
+PLAYER1_NAME, PLAYER1_SKILL, PLAYER2_NAME, PLAYER2_SKILL = range(4)
+
 # 启动函数
 async def start(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text('miamiamia')
+    await update.message.reply_text('miamiamiamiaminmi')
 
 # 重置函数
 async def reset(update: Update, context: CallbackContext) -> None:
@@ -51,6 +54,9 @@ def get_info(player_name, player_skill_name, opponent_name, opponent_skill_name)
     player_skill = get_skill_info(player_skill_name)
     opponent_skill = get_skill_info(opponent_skill_name)
 
+    if not player_stats or not opponent_stats or not player_skill or not opponent_skill:
+        return None, None, None, None
+    
     player_stats = {
         'name': player_stats[1],
         'health': player_stats[2],
@@ -79,13 +85,33 @@ def get_info(player_name, player_skill_name, opponent_name, opponent_skill_name)
     return player_stats, player_skill, opponent_stats, opponent_skill
 
 # 战斗函数
-async def battle(update: Update, context: CallbackContext) -> None:
-    args = context.args
-    if len(args) < 4:
-        await update.message.reply_text('请提供两个角色名称和两个技能名称。格式: /battle 角色1 技能1 角色2 技能2')
-        return
+async def battle_start(update: Update, context: CallbackContext) -> int:
+    await update.message.reply_text('请提供敌方角色名称和技能名称。格式: 角色名 技能名')
+    return PLAYER1_NAME
 
-    player_name, player_skill_name, opponent_name, opponent_skill_name = args
+async def player1_name(update: Update, context: CallbackContext) -> int:
+    args = update.message.text.split()
+    if len(args) != 2:
+        await update.message.reply_text('请提供角色名称和技能名称。格式: 角色名 技能名')
+        return PLAYER1_NAME
+
+    context.user_data['player1_name'], context.user_data['player1_skill'] = args
+    await update.message.reply_text('敌方攻击已准备。请提供你的角色名称和技能名称。格式: 角色名 技能名')
+    return PLAYER2_NAME
+
+async def player2_name(update: Update, context: CallbackContext) -> int:
+    args = update.message.text.split()
+    if len(args) != 2:
+        await update.message.reply_text('请提供角色名称和技能名称。格式: /battle 角色名 技能名')
+        return PLAYER2_NAME
+
+    context.user_data['player2_name'], context.user_data['player2_skill'] = args
+
+    player_name = context.user_data['player1_name']
+    player_skill_name = context.user_data['player1_skill']
+    opponent_name = context.user_data['player2_name']
+    opponent_skill_name = context.user_data['player2_skill']
+
     player_stats, player_skill, opponent_stats, opponent_skill = get_info(player_name, player_skill_name, opponent_name, opponent_skill_name)
 
     print(f'player_stats: {player_stats}')
@@ -95,7 +121,7 @@ async def battle(update: Update, context: CallbackContext) -> None:
 
     if not player_stats or not opponent_stats or not player_skill or not opponent_skill:
         await update.message.reply_text('角色或技能信息无效。')
-        return
+        return ConversationHandler.END
 
     dice_game = DiceGame(player_stats, opponent_stats, player_skill, opponent_skill)
     while True:
@@ -135,15 +161,36 @@ async def battle(update: Update, context: CallbackContext) -> None:
                 if player_stats['health'] <= 0:
                     await update.message.reply_text(f'{player_stats["name"]} 倒下了')
                 break
+    return ConversationHandler.END
 
 # 防守函数
-async def defense(update: Update, context: CallbackContext) -> None:
-    args = context.args
-    if len(args) < 4:
-        await update.message.reply_text('请提供两个角色名称和两个技能名称。格式: /defense 角色1 技能1 角色2 技能2')
-        return
+async def defense_start(update: Update, context: CallbackContext) -> int:
+    await update.message.reply_text('请提供防守方角色名称和技能名称。格式: 角色名 技能名')
+    return PLAYER1_NAME
 
-    player_name, player_skill_name, opponent_name, opponent_skill_name = args
+async def player1_name_defense(update: Update, context: CallbackContext) -> int:
+    args = update.message.text.split()
+    if len(args) != 2:
+        await update.message.reply_text('请提供角色名称和技能名称。格式: 角色名 技能名')
+        return PLAYER1_NAME
+
+    context.user_data['player1_name'], context.user_data['player1_skill'] = args
+    await update.message.reply_text('防守方已准备。请提供进攻方角色名称和技能名称。格式: 角色名 技能名')
+    return PLAYER2_NAME
+
+async def player2_name_defense(update: Update, context: CallbackContext) -> int:
+    args = update.message.text.split()
+    if len(args) != 2:
+        await update.message.reply_text('请提供角色名称和技能名称。格式: 角色名 技能名')
+        return PLAYER2_NAME
+
+    context.user_data['player2_name'], context.user_data['player2_skill'] = args
+
+    player_name = context.user_data['player1_name']
+    player_skill_name = context.user_data['player1_skill']
+    opponent_name = context.user_data['player2_name']
+    opponent_skill_name = context.user_data['player2_skill']
+
     player_stats, player_skill, opponent_stats, opponent_skill = get_info(player_name, player_skill_name, opponent_name, opponent_skill_name)
 
     print(f'player_stats: {player_stats}')
@@ -153,7 +200,7 @@ async def defense(update: Update, context: CallbackContext) -> None:
 
     if not player_stats or not opponent_stats or not player_skill or not opponent_skill:
         await update.message.reply_text('角色或技能信息无效。')
-        return
+        return ConversationHandler.END
 
     dice_game = DiceGame(player_stats, opponent_stats, player_skill, opponent_skill)
     roll1 = dice_game.roll_dice(player_skill['num_dice'], player_skill['dice_range'], player_stats['strength'], player_stats['weakness'])
@@ -175,6 +222,7 @@ async def defense(update: Update, context: CallbackContext) -> None:
     else:
         result_message += f"\n{player_stats['name']} 成功防守，没有受到伤害"
     await update.message.reply_text(result_message)
+    return ConversationHandler.END
 
 # 错误处理函数
 def error(update: Update, context: CallbackContext) -> None:
@@ -183,10 +231,33 @@ def error(update: Update, context: CallbackContext) -> None:
 # 处理命令和消息
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("reset", reset))
-application.add_handler(CommandHandler("battle", battle))
-application.add_handler(CommandHandler("defense", defense))
 application.add_handler(CommandHandler("strength", strength))
 application.add_handler(CommandHandler("weakness", weakness))
+
+async def cancel(update: Update, context: CallbackContext) -> int:
+    await update.message.reply_text('操作已取消。')
+    return ConversationHandler.END
+
+battle_conv_handler = ConversationHandler(
+    entry_points=[CommandHandler('battle', battle_start)],
+    states={
+        PLAYER1_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, player1_name)],
+        PLAYER2_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, player2_name)],
+    },
+   fallbacks=[CommandHandler('cancel', cancel)],
+)
+
+defense_conv_handler = ConversationHandler(
+    entry_points=[CommandHandler('defense', defense_start)],
+    states={
+        PLAYER1_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, player1_name_defense)],
+        PLAYER2_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, player2_name_defense)],
+    },
+    fallbacks=[CommandHandler('cancel', cancel)],
+)
+
+application.add_handler(battle_conv_handler)
+application.add_handler(defense_conv_handler)
 application.add_error_handler(error)
 
 # 启动Bot
