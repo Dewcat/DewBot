@@ -13,6 +13,13 @@ class DiceGame:
     def calculate_result(self, base_value, roll_results):
         return base_value + sum(roll_results)
 
+    def damage(self, base_value, rolls):
+        total_damage = 0
+        cumulative_sum = base_value
+        for roll in rolls:
+            cumulative_sum += roll
+            total_damage += cumulative_sum
+        return total_damage
     # def play_round(self):
     #     while(1):
     #         roll1 = self.roll_dice(self.skill1['num_dice'], self.skill1['dice_range'])
