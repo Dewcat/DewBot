@@ -4,6 +4,11 @@ import logging
 from game.dice import DiceGame
 from database.queries import get_skill_info, get_character_stats, update_character_health, reset_character_stats, update_character_strength, update_character_weakness
 from game.dice_roll import dice_command
+from stat_checks import get_stat_handlers
+from attribute_modifiers import get_attribute_modifier_handlers
+from stat_panel import get_stat_panel_handler
+
+
 token = "5769924134:AAFr2m3_mr_HbOdO42Mt8MUGAxFAaG4E4Yg"
 
 # 初始化
@@ -265,6 +270,15 @@ defense_conv_handler = ConversationHandler(
 
 application.add_handler(battle_conv_handler)
 application.add_handler(defense_conv_handler)
+
+for handler in get_stat_handlers():
+    application.add_handler(handler)
+
+for handler in get_attribute_modifier_handlers():
+    application.add_handler(handler)
+
+application.add_handler(get_stat_panel_handler())
+
 application.add_error_handler(error)
 
 # 启动Bot
