@@ -1,10 +1,10 @@
+import logging
 from telegram.ext import CommandHandler, MessageHandler, ConversationHandler, filters, CallbackContext
 from telegram import Update
-import logging
 from game.dice import DiceGame
 from database.queries import get_skill_info, get_character_stats, update_character_health
 
-# 定义对话状态常量
+# 定义对话状态常量（使用全局共享状态存储在 bot_data 中）
 PLAYER1_NAME, PLAYER1_SKILL, PLAYER2_NAME, PLAYER2_SKILL = range(4)
 
 def get_info(player_name, player_skill_name, opponent_name, opponent_skill_name):
@@ -15,7 +15,7 @@ def get_info(player_name, player_skill_name, opponent_name, opponent_skill_name)
 
     if not player_stats or not opponent_stats or not player_skill or not opponent_skill:
         return None, None, None, None
-    
+
     player_stats = {
         'name': player_stats[1],
         'health': player_stats[2],
@@ -46,6 +46,8 @@ def get_info(player_name, player_skill_name, opponent_name, opponent_skill_name)
 # 战斗对话流程函数
 # ----------------------
 async def battle_start(update: Update, context: CallbackContext) -> int:
+    # 初始化全局共享战斗数据，存储在 bot_data 中
+    context.bot_data['battle'] = {}
     await update.message.reply_text('请提供敌方角色名称和技能名称。格式: 角色名 技能名')
     return PLAYER1_NAME
 
@@ -54,8 +56,10 @@ async def player1_name(update: Update, context: CallbackContext) -> int:
     if len(args) != 2:
         await update.message.reply_text('请提供角色名称和技能名称。格式: 角色名 技能名')
         return PLAYER1_NAME
-    context.user_data['player1_name'], context.user_data['player1_skill'] = args
-    await update.message.reply_text('敌方攻击已准备。请提供你的角色名称和技能名称。格式: 角色名 技能名')
+    # 将数据存入全局 battle 数据中
+    battle = context.bot_data.setdefault('battle', {})
+    battle['player1_name'], battle['player1_skill'] = args
+    await update.message.reply_text('敌方设置完成。请提供你的角色名称和技能名称。格式: 角色名 技能名')
     return PLAYER2_NAME
 
 async def player2_name(update: Update, context: CallbackContext) -> int:
@@ -64,12 +68,13 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
         await update.message.reply_text('请提供角色名称和技能名称。格式: 角色名 技能名')
         return PLAYER2_NAME
 
-    context.user_data['player2_name'], context.user_data['player2_skill'] = args
+    battle = context.bot_data.setdefault('battle', {})
+    battle['player2_name'], battle['player2_skill'] = args
 
-    player_name = context.user_data['player1_name']
-    player_skill_name = context.user_data['player1_skill']
-    opponent_name = context.user_data['player2_name']
-    opponent_skill_name = context.user_data['player2_skill']
+    player_name = battle['player1_name']
+    player_skill_name = battle['player1_skill']
+    opponent_name = battle['player2_name']
+    opponent_skill_name = battle['player2_skill']
 
     player_stats, player_skill, opponent_stats, opponent_skill = get_info(
         player_name, player_skill_name, opponent_name, opponent_skill_name
@@ -158,6 +163,7 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
 # 防守对话流程函数
 # ----------------------
 async def defense_start(update: Update, context: CallbackContext) -> int:
+    context.bot_data['battle'] = {}
     await update.message.reply_text('请提供防守方角色名称和技能名称。格式: 角色名 技能名')
     return PLAYER1_NAME
 
@@ -166,7 +172,8 @@ async def player1_name_defense(update: Update, context: CallbackContext) -> int:
     if len(args) != 2:
         await update.message.reply_text('请提供角色名称和技能名称。格式: 角色名 技能名')
         return PLAYER1_NAME
-    context.user_data['player1_name'], context.user_data['player1_skill'] = args
+    battle = context.bot_data.setdefault('battle', {})
+    battle['player1_name'], battle['player1_skill'] = args
     await update.message.reply_text('防守方已准备。请提供进攻方角色名称和技能名称。格式: 角色名 技能名')
     return PLAYER2_NAME
 
@@ -175,12 +182,13 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
     if len(args) != 2:
         await update.message.reply_text('请提供角色名称和技能名称。格式: 角色名 技能名')
         return PLAYER2_NAME
-    context.user_data['player2_name'], context.user_data['player2_skill'] = args
+    battle = context.bot_data.setdefault('battle', {})
+    battle['player2_name'], battle['player2_skill'] = args
 
-    player_name = context.user_data['player1_name']
-    player_skill_name = context.user_data['player1_skill']
-    opponent_name = context.user_data['player2_name']
-    opponent_skill_name = context.user_data['player2_skill']
+    player_name = battle['player1_name']
+    player_skill_name = battle['player1_skill']
+    opponent_name = battle['player2_name']
+    opponent_skill_name = battle['player2_skill']
 
     player_stats, player_skill, opponent_stats, opponent_skill = get_info(
         player_name, player_skill_name, opponent_name, opponent_skill_name
@@ -208,10 +216,12 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
     result1 = dice_game.damage(player_skill['base_value'], roll1)
     result2 = dice_game.damage(opponent_skill['base_value'], roll2)
     player_roll_str = (f"{player_stats['name']}: {player_skill['name']}: " +
-                       ' + '.join([f"({player_skill['base_value']} + " + ' + '.join(map(str, roll1[:i+1])) + ")" for i in range(len(roll1))])
+                       ' + '.join([f"({player_skill['base_value']} + " + ' + '.join(map(str, roll1[:i+1])) + ")" 
+                                  for i in range(len(roll1))])
                        + f" = {result1}")
     opponent_roll_str = (f"{opponent_stats['name']}: {opponent_skill['name']}: " +
-                         ' + '.join([f"({opponent_skill['base_value']} + " + ' + '.join(map(str, roll2[:i+1])) + ")" for i in range(len(roll2))])
+                         ' + '.join([f"({opponent_skill['base_value']} + " + ' + '.join(map(str, roll2[:i+1])) + ")" 
+                                  for i in range(len(roll2))])
                          + f" = {result2}")
     result_message = f"{player_roll_str}\n{opponent_roll_str}"
     if result2 > result1:
@@ -239,6 +249,7 @@ def get_battle_conv_handler():
             PLAYER2_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, player2_name)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
+        per_user=False  # 关键：使同一聊天内所有用户共享对话状态
     )
 
 def get_defense_conv_handler():
@@ -249,4 +260,5 @@ def get_defense_conv_handler():
             PLAYER2_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, player2_name_defense)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
+        per_user=False  # 同上，共享对话状态
     )
