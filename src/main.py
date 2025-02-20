@@ -5,8 +5,11 @@ from telegram import Update
 from stat_checks import get_stat_handlers
 from attribute_modifiers import get_attribute_modifier_handlers
 from stat_panel import get_stat_panel_handler
-from battle_defense import get_battle_conv_handler, get_defense_conv_handler
+from battle import get_battle_conv_handler
+from defense import get_defense_conv_handler
 from character_management import get_character_management_handlers
+from fight import get_fight_conv_handler
+from attack import get_attack_conv_handler
 
 load_dotenv()
 
@@ -25,6 +28,8 @@ for handler in get_character_management_handlers():
 
 application.add_handler(get_battle_conv_handler())
 application.add_handler(get_defense_conv_handler())
+application.add_handler(get_fight_conv_handler())
+application.add_handler(get_attack_conv_handler())
 
 for handler in get_stat_handlers():
     application.add_handler(handler)
