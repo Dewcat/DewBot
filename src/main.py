@@ -18,7 +18,10 @@ load_dotenv()
 token = os.getenv("TELEGRAM_TOKEN")
 
 
-request = HTTPXRequest(connection_pool_size=100, proxy="socks5://127.0.0.1:7890")
+request = HTTPXRequest(connection_pool_size=50000, 
+                       connect_timeout=60, 
+                       pool_timeout=60, 
+                       proxy="socks5://127.0.0.1:7890")
 
 application = Application.builder()\
     .token(token)\
