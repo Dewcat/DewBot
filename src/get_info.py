@@ -50,7 +50,8 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
                 'name': skill[1],
                 'base_value': skill[2],
                 'num_dice': skill[3],
-                'dice_range': (skill[4], skill[5])
+                # 修改处：用单个数字表示硬币正面变动值
+                'dice_range': skill[4]
             }
     
     if opponent_skill_name:
@@ -60,7 +61,8 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
                 'name': skill[1],
                 'base_value': skill[2],
                 'num_dice': skill[3],
-                'dice_range': (skill[4], skill[5])
+                # 修改处：用单个数字表示硬币正面变动值
+                'dice_range': skill[4]
             }
     
     return result if result else None
