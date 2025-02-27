@@ -36,9 +36,17 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
     opponent_name = battle['player2_name']
     opponent_skill_name = battle['player2_skill']
 
-    player_stats, player_skill, opponent_stats, opponent_skill = get_info(
-        player_name, player_skill_name, opponent_name, opponent_skill_name
+    info = get_info(
+        player_name=player_name,
+        player_skill_name=player_skill_name,
+        opponent_name=opponent_name,
+        opponent_skill_name=opponent_skill_name
     )
+    player_stats = info.get("player_stats")
+    player_skill = info.get("player_skill")
+    opponent_stats = info.get("opponent_stats")
+    opponent_skill = info.get("opponent_skill")
+
     print(f'player_stats: {player_stats}')
     print(f'opponent_stats: {opponent_stats}')
     print(f'player_skill: {player_skill}')

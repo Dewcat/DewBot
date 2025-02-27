@@ -36,9 +36,14 @@ async def attack_get_target(update: Update, context: CallbackContext) -> int:
     print(f'target_name: {target_name}')
 
     # 获取进攻者和目标信息（目标信息用于血量）
-    attacker_stats, attacker_skill, target_stats, _ = get_info(
-        attacker_name, attacker_skill_name, target_name, attacker_skill_name
+    info = get_info(
+        player_name=attacker_name,
+        player_skill_name=attacker_skill_name,
+        opponent_name=target_name
     )
+    attacker_stats = info.get("player_stats")
+    attacker_skill = info.get("player_skill")
+    target_stats = info.get("opponent_stats")
     print(attacker_stats)
     print(attacker_skill)
     print(target_stats)

@@ -31,10 +31,18 @@ async def fight_get_fixed(update: Update, context: CallbackContext) -> int:
         return FIGHT_FIXED
     fight['fixed_value'] = fixed_value
 
-    # 直接调用 get_info 获取己方信息（对方参数传入相同的值）
-    player_stats, player_skill, _, _ = get_info(
-        fight['role_name'], fight['skill_name'], fight['role_name'], fight['skill_name']
+    # 修改前:
+    # player_stats, player_skill, _, _ = get_info(
+    #     fight['role_name'], fight['skill_name'], fight['role_name'], fight['skill_name']
+    # )
+    # 修改后:
+    info = get_info(
+        player_name=fight['role_name'],
+        player_skill_name=fight['skill_name']
     )
+    player_stats = info.get("player_stats")
+    player_skill = info.get("player_skill")
+
     print(f'player_stats: {player_stats}')
     print(f'player_skill: {player_skill}')
 

@@ -36,9 +36,16 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
     opponent_name = battle['player2_name']
     opponent_skill_name = battle['player2_skill']
 
-    player_stats, player_skill, opponent_stats, opponent_skill = get_info(
-        player_name, player_skill_name, opponent_name, opponent_skill_name
+    info = get_info(
+        player_name=player_name,
+        player_skill_name=player_skill_name,
+        opponent_name=opponent_name,
+        opponent_skill_name=opponent_skill_name
     )
+    player_stats = info.get("player_stats")
+    player_skill = info.get("player_skill")
+    opponent_stats = info.get("opponent_stats")
+    opponent_skill = info.get("opponent_skill")
 
     print(f'player_stats: {player_stats}')
     print(f'opponent_stats: {opponent_stats}')
@@ -75,6 +82,7 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
             opponent_skill['num_dice'] -= 1
             if opponent_skill['num_dice'] == 0:
                 roll1 = roll_for_character(player_skill, player_stats)
+                result1 = dice_game.calculate_result(player_skill['base_value'], roll1)
                 player_roll_str = (f"{player_stats['name']}: {player_skill['name']}: {player_skill['base_value']} + " +
                                    ' + '.join(map(str, roll1)) + f' = {result1}')
                 damage = dice_game.damage(player_skill['base_value'], roll1)
@@ -94,6 +102,7 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
             player_skill['num_dice'] -= 1
             if player_skill['num_dice'] == 0:
                 roll2 = roll_for_character(opponent_skill, opponent_stats)
+                result2 = dice_game.calculate_result(opponent_skill['base_value'], roll2)
                 opponent_roll_str = (f"{opponent_stats['name']}: {opponent_skill['name']}: {opponent_skill['base_value']} + " +
                                      ' + '.join(map(str, roll2)) + f' = {result2}')
                 damage = dice_game.damage(opponent_skill['base_value'], roll2)
