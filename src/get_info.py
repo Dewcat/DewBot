@@ -30,7 +30,8 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
                 'name': stats[1],
                 'health': stats[2],
                 'strength': stats[4],
-                'weakness': stats[5]
+                'weakness': stats[5],
+                'sanity': stats[6]
             }
     
     if opponent_name:
@@ -40,7 +41,8 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
                 'name': stats[1],
                 'health': stats[2],
                 'strength': stats[4],
-                'weakness': stats[5]
+                'weakness': stats[5],
+                'sanity': stats[6]
             }
     
     if player_skill_name:

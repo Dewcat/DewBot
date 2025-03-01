@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import CallbackContext, CommandHandler
 from database.queries import reset_character_stats, update_character_strength, update_character_weakness
+from game.sanity import increase_sanity as incSanity, decrease_sanity as decSanity
 
 async def reset(update: Update, context: CallbackContext) -> None:
     reset_character_stats()
@@ -38,6 +39,32 @@ async def weakness(update: Update, context: CallbackContext) -> None:
     action = "增加" if weakness_change > 0 else "减少"
     await update.message.reply_text(f'{character_name} 的虚弱层数{action}了 {abs(weakness_change)}。')
 
+async def sanity(update: Update, context: CallbackContext) -> None:
+    """
+    调整角色的理智值。格式: /sanity 角色名 数值
+    数值正数表示增加，负数表示减少。
+    """
+    args = context.args
+    if len(args) != 2:
+        await update.message.reply_text('请提供角色名称和调整的理智值。格式: /sanity 角色名 数值（正为增加、负为减少）')
+        return
+
+    character_name, sanity_change = args
+    try:
+        sanity_change = int(sanity_change)
+    except ValueError:
+        await update.message.reply_text('理智值必须为整数！')
+        return
+
+    if sanity_change >= 0:
+        new_sanity = incSanity(character_name, sanity_change)
+        action = "增加"
+    else:
+        new_sanity = decSanity(character_name, -sanity_change)
+        action = "减少"
+
+    await update.message.reply_text(f'{character_name} 的理智值{action}了 {abs(sanity_change)} 点，现在的理智值是 {new_sanity}。')
+
 def get_reset_handler():
     return CommandHandler("reset", reset)
 
@@ -47,8 +74,11 @@ def get_strength_handler():
 def get_weakness_handler():
     return CommandHandler("weakness", weakness)
 
+def get_sanity_handler():
+    return CommandHandler("sanity", sanity)
+
 def get_character_management_handlers():
     """
-    返回一个列表，包含重置、修改强壮层数、修改虚弱层数这三个指令的处理器
+    返回一个列表，包含重置、修改强壮层数、修改虚弱层数和调整理智值的指令处理器
     """
-    return [get_reset_handler(), get_strength_handler(), get_weakness_handler()]
+    return [get_reset_handler(), get_strength_handler(), get_weakness_handler(), get_sanity_handler()]

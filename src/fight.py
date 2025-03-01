@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import CommandHandler, CallbackContext, ConversationHandler, MessageHandler, filters
 from get_info import get_info
 from game.dice import DiceGame, roll_for_character
+from game.sanity import increase_sanity  # 新增导入，负责更新理智值
 
 # 定义对话状态常量
 FIGHT_INFO, FIGHT_FIXED = range(2)
@@ -31,11 +32,6 @@ async def fight_get_fixed(update: Update, context: CallbackContext) -> int:
         return FIGHT_FIXED
     fight['fixed_value'] = fixed_value
 
-    # 修改前:
-    # player_stats, player_skill, _, _ = get_info(
-    #     fight['role_name'], fight['skill_name'], fight['role_name'], fight['skill_name']
-    # )
-    # 修改后:
     info = get_info(
         player_name=fight['role_name'],
         player_skill_name=fight['skill_name']
@@ -58,7 +54,10 @@ async def fight_get_fixed(update: Update, context: CallbackContext) -> int:
                 " + ".join(map(str, roll)) + f") = {result}")
 
     if result >= fixed_value:
-        result_text = f"{roll_str}，成功！"
+        # 成功后，角色回复10点理智值，并写入数据库更新
+        new_sanity = increase_sanity(player_stats['name'], 10)
+        result_text = (f"{roll_str}，成功！\n"
+                       f"{player_stats['name']} 回复了 10 点理智值，目前理智值为 {new_sanity}")
     else:
         result_text = f"{roll_str}，失败。"
     await update.message.reply_text(result_text)
