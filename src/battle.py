@@ -2,8 +2,9 @@ import logging
 from telegram.ext import CommandHandler, MessageHandler, ConversationHandler, filters, CallbackContext
 from telegram import Update
 from game.dice import DiceGame, roll_for_character
-from database.queries import update_character_health
+from database.queries import update_character_health, get_character_sanity
 from get_info import get_info
+from game.dice import compute_cumulative_damage  # 修改后的导入
 
 # 定义对话状态常量
 PLAYER1_NAME, PLAYER1_SKILL, PLAYER2_NAME, PLAYER2_SKILL = range(4)
@@ -88,20 +89,13 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
             if opponent_skill['num_dice'] == 0:
                 # 玩家最终获胜
                 bonus = int(10 * (1 + 0.2 * round_counter))
-                # 更新理智值：胜者增加，败者减少
+                # 更新理智值：胜者增加，败者减少1/2
                 from game.sanity import increase_sanity, decrease_sanity
                 increase_sanity(player_stats['name'], bonus)
-                decrease_sanity(opponent_stats['name'], bonus/2)
-                # 计算伤害
+                decrease_sanity(opponent_stats['name'], bonus // 2)
+                # 使用累加计算提取伤害及描述
                 roll1 = roll_for_character(player_skill, player_stats)
-                result1 = dice_game.calculate_result(player_skill['base_value'], roll1)
-                player_roll_str = (f"{player_stats['name']}: {player_skill['name']}: {player_skill['base_value']} + " +
-                                   ' + '.join(map(str, roll1)) + f' = {result1}')
-                damage = dice_game.damage(player_skill['base_value'], roll1)
-                damage_str = ' + '.join(
-                    [f"({player_skill['base_value']} + " +
-                     ' + '.join(map(str, roll1[:i+1])) + ")" for i in range(len(roll1))]
-                ) + f' = {damage}'
+                damage, damage_str = compute_cumulative_damage(player_skill['base_value'], roll1)
                 opponent_stats['health'] -= damage
                 update_character_health(opponent_stats['name'], opponent_stats['health'])
                 # 击杀对方时，胜者额外增加10点理智值
@@ -109,34 +103,30 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                     increase_sanity(player_stats['name'], 10)
                     await update.message.reply_text(f'{opponent_stats["name"]} 倒下了')
                 await update.message.reply_text(
-                    f'{player_roll_str}\n{player_stats["name"]} 胜利，造成{damage_str}点伤害\n'
-                    f"胜者增加 {bonus} 点理智，败者减少 {bonus/2} 点理智。"
+                    f'{player_stats["name"]}: {player_skill["name"]}: {damage_str}\n'
+                    f"{player_stats['name']} 胜利，造成 {damage} 点伤害\n"
+                    f"{player_stats['name']} 增加 {bonus} 点理智，当前理智为 {get_character_sanity(player_stats['name'])}\n"
+                    f"{opponent_stats['name']} 减少 {bonus // 2} 点理智，当前理智为 {get_character_sanity(opponent_stats['name'])}"
                 )
                 break
         elif result2 > result1:
             player_skill['num_dice'] -= 1
             if player_skill['num_dice'] == 0:
-                # 对手最终获胜
                 bonus = int(10 * (1 + 0.2 * round_counter))
                 from game.sanity import increase_sanity, decrease_sanity
                 increase_sanity(opponent_stats['name'], bonus)
-                decrease_sanity(player_stats['name'], bonus)
+                decrease_sanity(player_stats['name'], bonus // 2)
                 roll2 = roll_for_character(opponent_skill, opponent_stats)
-                result2 = dice_game.calculate_result(opponent_skill['base_value'], roll2)
-                opponent_roll_str = (f"{opponent_stats['name']}: {opponent_skill['name']}: {opponent_skill['base_value']} + " +
-                                     ' + '.join(map(str, roll2)) + f' = {result2}')
-                damage = dice_game.damage(opponent_skill['base_value'], roll2)
-                damage_str = ' + '.join(
-                    [f"({opponent_skill['base_value']} + " +
-                     ' + '.join(map(str, roll2[:i+1])) + ")" for i in range(len(roll2))]
-                ) + f' = {damage}'
+                damage, damage_str = compute_cumulative_damage(opponent_skill['base_value'], roll2)
                 player_stats['health'] -= damage
                 update_character_health(player_stats['name'], player_stats['health'])
                 if player_stats['health'] <= 0:
                     await update.message.reply_text(f'{player_stats["name"]} 倒下了')
                 await update.message.reply_text(
-                    f'{opponent_roll_str}\n{opponent_stats["name"]} 胜利，造成{damage_str}点伤害\n'
-                    f"胜者增加 {bonus} 点理智，败者减少 {bonus} 点理智。"
+                    f'{opponent_stats["name"]}: {opponent_skill["name"]}: {damage_str}\n'
+                    f"{opponent_stats['name']} 胜利，造成 {damage} 点伤害\n"
+                    f"{opponent_stats['name']} 增加 {bonus} 点理智，当前理智为 {get_character_sanity(opponent_stats['name'])}\n"
+                    f"{player_stats['name']} 减少 {bonus // 2} 点理智，当前理智为 {get_character_sanity(player_stats['name'])}"
                 )
                 break
     return ConversationHandler.END

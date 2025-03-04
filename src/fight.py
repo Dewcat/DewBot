@@ -4,6 +4,7 @@ from telegram.ext import CommandHandler, CallbackContext, ConversationHandler, M
 from get_info import get_info
 from game.dice import DiceGame, roll_for_character
 from game.sanity import increase_sanity  # 新增导入，负责更新理智值
+from game.dice import compute_simple_damage  # 修改后的导入
 
 # 定义对话状态常量
 FIGHT_INFO, FIGHT_FIXED = range(2)
@@ -39,27 +40,23 @@ async def fight_get_fixed(update: Update, context: CallbackContext) -> int:
     player_stats = info.get("player_stats")
     player_skill = info.get("player_skill")
 
-    print(f'player_stats: {player_stats}')
-    print(f'player_skill: {player_skill}')
-
     if not player_stats or not player_skill:
         await update.message.reply_text("角色或技能信息无效。")
         return ConversationHandler.END
 
-    # 使用 roll_for_character 获取掷骰结果，传入 player_skill 和 player_stats
+    # 使用 compute_simple_damage 获取总伤害和描述字符串
     roll = roll_for_character(player_skill, player_stats)
-    result = player_skill['base_value'] + sum(roll)
-    roll_str = (f"{player_stats['name']}: {player_skill['name']}: " +
-                f"({player_skill['base_value']} + " +
-                " + ".join(map(str, roll)) + f") = {result}")
+    total, damage_str = compute_simple_damage(player_skill['base_value'], roll)
+    roll_str = f"{player_stats['name']}: {player_skill['name']}: {damage_str}"
 
-    if result >= fixed_value:
-        # 成功后，角色回复10点理智值，并写入数据库更新
+    if total >= fixed_value:
         new_sanity = increase_sanity(player_stats['name'], 10)
         result_text = (f"{roll_str}，成功！\n"
                        f"{player_stats['name']} 回复了 10 点理智值，目前理智值为 {new_sanity}")
     else:
-        result_text = f"{roll_str}，失败。"
+        new_sanity = increase_sanity(player_stats['name'], -5)
+        result_text = (f"{roll_str}，失败。\n"
+                   f"{player_stats['name']} 降低了 5 点理智值，目前理智值为 {new_sanity}")
     await update.message.reply_text(result_text)
     return ConversationHandler.END
 

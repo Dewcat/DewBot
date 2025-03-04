@@ -28,8 +28,33 @@ class DiceGame:
 def roll_for_character(skill, stats):
     """
     根据传入的技能信息和角色状态进行投掷硬币。
-    skill: 包含 'num_dice' 和 'dice_range'（硬币正面数值）的字典
-    stats: 包含 'strength'、'weakness' 以及可选的 'sanity'（理智值，默认为0）的字典
     """
     dice_game = DiceGame(None, None, None, None)
-    return dice_game.roll_dice(skill['num_dice'], skill['dice_range'], stats['strength'], stats['weakness'], stats['sanity'])
+    return dice_game.roll_dice(skill['num_dice'], skill['dice_range'], stats['strength'], stats['weakness'], stats.get('sanity', 0))
+
+# 新增：整合自 damage_result.py 的函数
+def compute_simple_damage(base_value, rolls):
+    """
+    简单计算：总伤害 = 基础值 + 骰子总和
+    返回：(总伤害, 描述字符串)
+    """
+    total = base_value + sum(rolls)
+    description = f"({base_value} + {' + '.join(map(str, rolls))}) = {total}"
+    return total, description
+
+def compute_cumulative_damage(base_value, rolls):
+    """
+    累加计算：每段伤害累计
+    例如：对 roll=[3, 5, 2] 及 base_value=30，
+         计算：(30+3) + (30+3+5) + (30+3+5+2)
+    返回：(总伤害, 描述字符串)
+    """
+    total = 0
+    parts = []
+    cumulative = base_value
+    for i, r in enumerate(rolls):
+        cumulative += r
+        total += cumulative
+        parts.append(f"({base_value} + {' + '.join(map(str, rolls[:i+1]))})")
+    description = " + ".join(parts) + f" = {total}"
+    return total, description

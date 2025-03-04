@@ -5,6 +5,7 @@ from game.dice import DiceGame, roll_for_character
 from database.queries import update_character_health
 from get_info import get_info
 from game.sanity import increase_sanity  # 新增导入
+from game.dice import compute_cumulative_damage  # 修改后的导入
 
 # 定义对话状态常量
 PLAYER1_NAME, PLAYER1_SKILL, PLAYER2_NAME, PLAYER2_SKILL = range(4)
@@ -57,28 +58,17 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
         await update.message.reply_text('角色或技能信息无效。')
         return ConversationHandler.END
 
-    dice_game = DiceGame(player_stats, opponent_stats, player_skill, opponent_skill)
-
-    # 使用 roll_for_character 获取掷骰结果
+    # 使用 compute_cumulative_damage 分别计算双方伤害和描述
     roll1 = roll_for_character(player_skill, player_stats)
     roll2 = roll_for_character(opponent_skill, opponent_stats)
-    print(f'roll1: {roll1}')
-    print(f'roll2: {roll2}')
-    result1 = dice_game.damage(player_skill['base_value'], roll1)
-    result2 = dice_game.damage(opponent_skill['base_value'], roll2)
-    player_roll_str = (f"{player_stats['name']}: {player_skill['name']}: " +
-                       ' + '.join([f"({player_skill['base_value']} + " +
-                                    ' + '.join(map(str, roll1[:i+1])) + ")" 
-                                    for i in range(len(roll1))])
-                       + f" = {result1}")
-    opponent_roll_str = (f"{opponent_stats['name']}: {opponent_skill['name']}: " +
-                         ' + '.join([f"({opponent_skill['base_value']} + " +
-                                      ' + '.join(map(str, roll2[:i+1])) + ")" 
-                                      for i in range(len(roll2))])
-                         + f" = {result2}")
+    total1, desc1 = compute_cumulative_damage(player_skill['base_value'], roll1)
+    total2, desc2 = compute_cumulative_damage(opponent_skill['base_value'], roll2)
+    player_roll_str = f"{player_stats['name']}: {player_skill['name']}: {desc1}"
+    opponent_roll_str = f"{opponent_stats['name']}: {opponent_skill['name']}: {desc2}"
     result_message = f"{player_roll_str}\n{opponent_roll_str}"
-    if result2 > result1:
-        damage = result2 - result1
+
+    if total2 > total1:
+        damage = total2 - total1
         player_stats['health'] -= damage
         # 更新受到伤害后的血量到数据库
         update_character_health(player_stats['name'], player_stats['health'])
