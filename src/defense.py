@@ -4,6 +4,7 @@ from telegram import Update
 from game.dice import DiceGame, roll_for_character
 from database.queries import update_character_health
 from get_info import get_info
+from game.sanity import increase_sanity  # 新增导入
 
 # 定义对话状态常量
 PLAYER1_NAME, PLAYER1_SKILL, PLAYER2_NAME, PLAYER2_SKILL = range(4)
@@ -84,6 +85,9 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
         result_message += f"\n{player_stats['name']} 的防御被破坏，受到 {damage} 点伤害"
         if player_stats['health'] <= 0:
             result_message += f"\n{player_stats['name']} 倒下了"
+            # 击杀对方后，攻击角色回复 10 点理智值，并写回数据库
+            new_sanity = increase_sanity(opponent_stats['name'], 10)
+            result_message += f"\n{opponent_stats['name']} 回复了 10 点理智值，目前理智值为 {new_sanity}"
     else:
         result_message += f"\n{player_stats['name']} 成功防守，没有受到伤害"
     await update.message.reply_text(result_message)

@@ -3,6 +3,7 @@ from telegram.ext import CommandHandler, CallbackContext, ConversationHandler, M
 from get_info import get_info
 from game.dice import roll_for_character
 from database.queries import update_character_health
+from database.queries import update_character_sanity
 
 # 定义对话状态常量
 ATTACKER_INFO, TARGET_NAME = range(2)
@@ -84,6 +85,11 @@ async def attack_get_target(update: Update, context: CallbackContext) -> int:
     )
     if new_health <= 0:
         result_message += f"\n{target_stats['name']} 倒下了"
+        attacker_name = attacker_stats['name']
+        current_sanity = attacker_stats.get('sanity', 0)
+        new_sanity = current_sanity + 10
+        update_character_sanity(attacker_name, new_sanity)
+        result_message += f"\n{attacker_name} 回复了 10 点理智值，目前理智值为 {new_sanity}"
     await update.message.reply_text(result_message)
     return ConversationHandler.END
 
