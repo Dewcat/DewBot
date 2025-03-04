@@ -91,7 +91,7 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                 # 更新理智值：胜者增加，败者减少
                 from game.sanity import increase_sanity, decrease_sanity
                 increase_sanity(player_stats['name'], bonus)
-                decrease_sanity(opponent_stats['name'], bonus)
+                decrease_sanity(opponent_stats['name'], bonus/2)
                 # 计算伤害
                 roll1 = roll_for_character(player_skill, player_stats)
                 result1 = dice_game.calculate_result(player_skill['base_value'], roll1)
@@ -110,7 +110,7 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                     await update.message.reply_text(f'{opponent_stats["name"]} 倒下了')
                 await update.message.reply_text(
                     f'{player_roll_str}\n{player_stats["name"]} 胜利，造成{damage_str}点伤害\n'
-                    f"胜者增加 {bonus} 点理智，败者减少 {bonus} 点理智。"
+                    f"胜者增加 {bonus} 点理智，败者减少 {bonus/2} 点理智。"
                 )
                 break
         elif result2 > result1:
