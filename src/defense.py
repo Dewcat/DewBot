@@ -77,7 +77,7 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
             result_message += f"\n{player_stats['name']} 倒下了"
             # 击杀对方后，攻击角色回复 10 点理智值，并写回数据库
             new_sanity = increase_sanity(opponent_stats['name'], 10)
-            result_message += f"\n{opponent_stats['name']} 回复了 10 点理智值，目前理智值为 {new_sanity}"
+            result_message += f"\n{opponent_stats['name']} 回复 10 点理智"
     else:
         result_message += f"\n{player_stats['name']} 成功防守，没有受到伤害"
     await update.message.reply_text(result_message)

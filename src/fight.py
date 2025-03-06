@@ -52,11 +52,11 @@ async def fight_get_fixed(update: Update, context: CallbackContext) -> int:
     if total >= fixed_value:
         new_sanity = increase_sanity(player_stats['name'], 10)
         result_text = (f"{roll_str}，成功！\n"
-                       f"{player_stats['name']} 回复了 10 点理智值，目前理智值为 {new_sanity}")
+                       f"{player_stats['name']} 回复 10 点理智，当前理智为 {new_sanity}")
     else:
         new_sanity = increase_sanity(player_stats['name'], -5)
         result_text = (f"{roll_str}，失败。\n"
-                   f"{player_stats['name']} 降低了 5 点理智值，目前理智值为 {new_sanity}")
+                   f"{player_stats['name']} 失去 5 点理智，当前理智为 {new_sanity}")
     await update.message.reply_text(result_text)
     return ConversationHandler.END
 

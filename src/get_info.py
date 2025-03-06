@@ -31,7 +31,9 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
                 'health': stats[2],
                 'strength': stats[4],
                 'weakness': stats[5],
-                'sanity': stats[6]
+                'sanity': stats[6],
+                'vul': stats[7],
+                'dlv': stats[8]
             }
     
     if opponent_name:
@@ -42,7 +44,9 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
                 'health': stats[2],
                 'strength': stats[4],
                 'weakness': stats[5],
-                'sanity': stats[6]
+                'sanity': stats[6],
+                'vul': stats[7],
+                'dlv': stats[8]
             }
     
     if player_skill_name:
@@ -52,8 +56,8 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
                 'name': skill[1],
                 'base_value': skill[2],
                 'num_dice': skill[3],
-                # 修改处：用单个数字表示硬币正面变动值
-                'dice_range': skill[4]
+                'dice_range': skill[4],
+                'alv': skill[5]
             }
     
     if opponent_skill_name:
@@ -63,8 +67,8 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
                 'name': skill[1],
                 'base_value': skill[2],
                 'num_dice': skill[3],
-                # 修改处：用单个数字表示硬币正面变动值
-                'dice_range': skill[4]
+                'dice_range': skill[4],
+                'alv': skill[5]
             }
     
     return result if result else None

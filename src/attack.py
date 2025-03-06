@@ -61,7 +61,7 @@ async def attack_get_target(update: Update, context: CallbackContext) -> int:
         current_sanity = attacker_stats.get('sanity', 0)
         new_sanity = current_sanity + 10
         update_character_sanity(attacker_stats['name'], new_sanity)
-        result_message += f"\n{attacker_stats['name']} 回复了 10 点理智值，目前理智值为 {new_sanity}"
+        result_message += f"\n{attacker_stats['name']} 回复 10 点理智，当前理智为 {new_sanity}"
     await update.message.reply_text(result_message)
     return ConversationHandler.END
 

@@ -86,31 +86,37 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
         # 根据本轮结果减少对应方的骰子（未即时更新理智值）
         if result1 > result2:
             opponent_skill['num_dice'] -= 1
+            # 处理玩家最终获胜的分支
             if opponent_skill['num_dice'] == 0:
-                # 玩家最终获胜
                 bonus = int(10 * (1 + 0.2 * round_counter))
-                # 更新理智值：胜者增加，败者减少1/2
                 from game.sanity import increase_sanity, decrease_sanity
+                # 先结算双方的拼点调整
                 increase_sanity(player_stats['name'], bonus)
                 decrease_sanity(opponent_stats['name'], bonus // 2)
-                # 使用累加计算提取伤害及描述
+                # 计算伤害及描述
                 roll1 = roll_for_character(player_skill, player_stats)
                 damage, damage_str = compute_cumulative_damage(player_skill['base_value'], roll1)
                 opponent_stats['health'] -= damage
                 update_character_health(opponent_stats['name'], opponent_stats['health'])
-                # 击杀对方时，胜者额外增加10点理智值
-                if opponent_stats['health'] <= 0:
-                    increase_sanity(player_stats['name'], 10)
-                    await update.message.reply_text(f'{opponent_stats["name"]} 倒下了')
-                await update.message.reply_text(
+                msg = (
                     f'{player_stats["name"]}: {player_skill["name"]}: {damage_str}\n'
                     f"{player_stats['name']} 胜利，造成 {damage} 点伤害\n"
-                    f"{player_stats['name']} 增加 {bonus} 点理智，当前理智为 {get_character_sanity(player_stats['name'])}\n"
-                    f"{opponent_stats['name']} 减少 {bonus // 2} 点理智，当前理智为 {get_character_sanity(opponent_stats['name'])}"
+                    f"{player_stats['name']} 回复 {bonus} 点理智，当前理智为 {get_character_sanity(player_stats['name'])}\n"
+                    f"{opponent_stats['name']} 失去 {bonus // 2} 点理智"
                 )
+                # 如果对手血量归零，则倒下后额外为攻击者回复10点理智
+                if opponent_stats['health'] <= 0:
+                    new_sanity = increase_sanity(player_stats['name'], 10)
+                    msg += (
+                        f"\n{opponent_stats['name']} 倒下了\n"
+                        f"{player_stats['name']} 回复 10 点理智，当前理智为 {new_sanity}"
+                    )
+                await update.message.reply_text(msg)
                 break
+
         elif result2 > result1:
             player_skill['num_dice'] -= 1
+            # 处理对手最终获胜的分支
             if player_skill['num_dice'] == 0:
                 bonus = int(10 * (1 + 0.2 * round_counter))
                 from game.sanity import increase_sanity, decrease_sanity
@@ -120,14 +126,19 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                 damage, damage_str = compute_cumulative_damage(opponent_skill['base_value'], roll2)
                 player_stats['health'] -= damage
                 update_character_health(player_stats['name'], player_stats['health'])
-                if player_stats['health'] <= 0:
-                    await update.message.reply_text(f'{player_stats["name"]} 倒下了')
-                await update.message.reply_text(
+                msg = (
                     f'{opponent_stats["name"]}: {opponent_skill["name"]}: {damage_str}\n'
                     f"{opponent_stats['name']} 胜利，造成 {damage} 点伤害\n"
-                    f"{opponent_stats['name']} 增加 {bonus} 点理智，当前理智为 {get_character_sanity(opponent_stats['name'])}\n"
-                    f"{player_stats['name']} 减少 {bonus // 2} 点理智，当前理智为 {get_character_sanity(player_stats['name'])}"
+                    f"{opponent_stats['name']} 回复 {bonus} 点理智，\n"
+                    f"{player_stats['name']} 失去 {bonus // 2} 点理智，当前理智为 {get_character_sanity(player_stats['name'])}"
                 )
+                if player_stats['health'] <= 0:
+                    new_sanity = increase_sanity(opponent_stats['name'], 10)
+                    msg += (
+                        f"\n{player_stats['name']} 倒下了\n"
+                        f"{opponent_stats['name']} 回复 10 点理智"
+                    )
+                await update.message.reply_text(msg)
                 break
     return ConversationHandler.END
 
