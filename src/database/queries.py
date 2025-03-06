@@ -245,18 +245,19 @@ def get_character_panels():
     cursor = db.connection.cursor()
     
     for character_name in characters:
-        cursor.execute("SELECT name, health, initial_health, sanity, strength, weakness, vul FROM characters WHERE name=?", 
+        cursor.execute("SELECT name, health, initial_health, sanity, strength, weakness, vul, persona FROM characters WHERE name=?", 
                      (character_name,))
         row = cursor.fetchone()
         if row:
-            name, health, max_health, sanity, strength, weakness, vul = row
+            name, health, max_health, sanity, strength, weakness, vul, persona = row
             
             panel = {
                 'name': character_icons.get(name, name),  # 使用带图标的名称
                 'original_name': name,  # 保留原始名称，以便后续处理
                 'health': f"{health}/{max_health}",
                 'sanity': sanity,
-                'can_fight': health > 0  # 添加战斗状态标记，体力为0则无法战斗
+                'can_fight': health > 0,  # 添加战斗状态标记，体力为0则无法战斗
+                'persona': persona  # 添加角色当前使用的人格信息
             }
             
             # 只有当强壮值不为0时才添加
@@ -277,3 +278,78 @@ def get_character_panels():
     
     db.close()
     return result
+
+def get_available_personas(character_name):
+    """
+    获取指定角色可用的所有人格列表
+    返回一个列表，包含所有可用的人格数据
+    """
+    db = DatabaseConnection('game.db')
+    db.connect()
+    cursor = db.connection.cursor()
+    
+    # 查询所有可用于该角色的人格（persona字段等于该角色名的记录）
+    cursor.execute("SELECT id, name, health, initial_health, dlv FROM characters WHERE persona = ?", (character_name,))
+    personas = cursor.fetchall()
+    
+    db.close()
+    return personas
+
+def set_character_persona(character_name, persona_id):
+    """
+    将指定ID的人格数据覆盖到角色记录中
+    
+    参数:
+      character_name: 要设置人格的角色名
+      persona_id: 人格记录的ID
+      
+    返回:
+      成功则返回人格名称，失败则返回None
+    """
+    db = DatabaseConnection('game.db')
+    db.connect()
+    cursor = db.connection.cursor()
+    
+    # 查询人格数据
+    cursor.execute("SELECT name, health, initial_health, dlv FROM characters WHERE id = ?", (persona_id,))
+    persona = cursor.fetchone()
+    
+    if not persona:
+        db.close()
+        return None
+    
+    persona_name, health, initial_health, dlv = persona
+    
+    # 更新角色数据，设置为所选人格的数据
+    cursor.execute(
+        "UPDATE characters SET health = ?, initial_health = ?, dlv = ?, persona = ? WHERE name = ?", 
+        (health, initial_health, dlv, persona_name, character_name)
+    )
+    
+    db.connection.commit()
+    db.close()
+    
+    return persona_name
+
+def reset_character_to_default(character_name):
+    """
+    将角色重置为默认状态
+    体力和初始体力设为100，dlv归0，persona清空
+    
+    参数:
+      character_name: 要重置的角色名
+    """
+    db = DatabaseConnection('game.db')
+    db.connect()
+    cursor = db.connection.cursor()
+    
+    # 重置角色状态
+    cursor.execute(
+        "UPDATE characters SET health = 100, initial_health = 100, dlv = 0, persona = NULL WHERE name = ?", 
+        (character_name,)
+    )
+    
+    db.connection.commit()
+    db.close()
+    
+    return True

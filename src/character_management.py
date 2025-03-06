@@ -1,7 +1,10 @@
 from telegram import Update
-from telegram.ext import CallbackContext, CommandHandler
+from telegram.ext import CallbackContext, CommandHandler, ConversationHandler, MessageHandler, filters
 from database.queries import reset_character_stats, update_character_strength, update_character_weakness, update_character_vul
 from game.sanity import increase_sanity as incSanity, decrease_sanity as decSanity
+
+# 定义会话状态
+PERSONA_SELECT = 0
 
 async def reset(update: Update, context: CallbackContext) -> None:
     reset_character_stats()
@@ -154,9 +157,15 @@ async def panel(update: Update, context: CallbackContext) -> None:
     
     for _, panel in panels.items():
         message += f" {panel['name']} \n"  # 使用带图标的名称
-        # Check if character is unable to fight (can_fight: health > 0)
-        if not (panel['can_fight']):  # not can_fight
+        
+        # 添加覆写人格信息
+        if panel.get('persona'):
+            message += f"【人格：{panel['persona']}】\n"
+        
+        # 显示战斗状态
+        if not panel['can_fight']:
             message += "【无法战斗】\n"
+            
         message += f"体力：{panel['health']}\n"
         message += f"理智：{panel['sanity']}\n"
         
@@ -172,6 +181,90 @@ async def panel(update: Update, context: CallbackContext) -> None:
         message += "\n"
     
     await update.message.reply_text(message)
+
+async def persona_start(update: Update, context: CallbackContext) -> int:
+    """启动人格覆写流程"""
+    args = context.args
+    if not args:
+        await update.message.reply_text("请提供角色名称。格式：/persona 角色名")
+        return ConversationHandler.END
+    
+    character_name = args[0]
+    # 保存角色名以便后续使用
+    context.user_data['persona_character'] = character_name
+    
+    # 从数据库获取可用人格
+    from database.queries import get_available_personas
+    personas = get_available_personas(character_name)
+    
+    if not personas:
+        await update.message.reply_text(f"未找到 {character_name} 可用的人格配置。")
+        return ConversationHandler.END
+    
+    # 显示人格列表
+    message = f"【{character_name} 的可用人格】\n\n"
+    message += "0. 初始人格\n"
+    
+    for i, persona in enumerate(personas, 1):
+        persona_id, name, health, max_health, dlv = persona
+        message += f"{i}. {name} (体力: {health}/{max_health}, DLV: {dlv})\n"
+    
+    # 保存人格ID列表以便后续查找
+    context.user_data['persona_list'] = [p[0] for p in personas]
+    
+    message += "\n请输入数字选择要覆写的人格："
+    await update.message.reply_text(message)
+    return PERSONA_SELECT
+
+async def persona_select(update: Update, context: CallbackContext) -> int:
+    """处理用户选择的人格"""
+    character_name = context.user_data.get('persona_character')
+    persona_list = context.user_data.get('persona_list', [])
+    
+    try:
+        choice = int(update.message.text.strip())
+        
+        # 处理选择
+        if choice == 0:  # 恢复默认状态
+            from database.queries import reset_character_to_default
+            reset_character_to_default(character_name)
+            await update.message.reply_text(f"{character_name} 已恢复为初始人格。")
+        elif 1 <= choice <= len(persona_list):  # 切换到选择的人格
+            from database.queries import set_character_persona
+            persona_id = persona_list[choice - 1]
+            persona_name = set_character_persona(character_name, persona_id)
+            
+            if persona_name:
+                await update.message.reply_text(f"{character_name} 已覆写 {persona_name} 的人格。")
+            else:
+                await update.message.reply_text("人格覆写失败。")
+        else:  # 无效的选择
+            await update.message.reply_text("无效的选择。请输入列表中显示的数字。")
+            return PERSONA_SELECT
+            
+    except ValueError:
+        await update.message.reply_text("请输入有效的数字。")
+        return PERSONA_SELECT
+        
+    # 清理会话数据
+    if 'persona_character' in context.user_data:
+        del context.user_data['persona_character']
+    if 'persona_list' in context.user_data:
+        del context.user_data['persona_list']
+        
+    return ConversationHandler.END
+
+async def persona_cancel(update: Update, context: CallbackContext) -> int:
+    """取消人格切换操作"""
+    await update.message.reply_text("人格覆写已取消。")
+    
+    # 清理会话数据
+    if 'persona_character' in context.user_data:
+        del context.user_data['persona_character']
+    if 'persona_list' in context.user_data:
+        del context.user_data['persona_list']
+        
+    return ConversationHandler.END
 
 def get_reset_handler():
     return CommandHandler("reset", reset)
@@ -191,9 +284,19 @@ def get_vul_handler():
 def get_panel_handler():
     return CommandHandler("panel", panel)
 
+def get_persona_handler():
+    """返回人格覆写命令的处理器"""
+    return ConversationHandler(
+        entry_points=[CommandHandler("persona", persona_start)],
+        states={
+            PERSONA_SELECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, persona_select)],
+        },
+        fallbacks=[CommandHandler("cancel", persona_cancel)]
+    )
+
 def get_character_management_handlers():
     """
-    返回一个列表，包含重置、修改强壮层数、修改虚弱层数、调整理智值、修改易伤层数和查看面板的指令处理器
+    返回一个列表，包含各种角色管理指令处理器
     """
     return [
         get_reset_handler(), 
@@ -201,5 +304,6 @@ def get_character_management_handlers():
         get_weakness_handler(), 
         get_sanity_handler(),
         get_vul_handler(),
-        get_panel_handler()
+        get_panel_handler(),
+        get_persona_handler()  # 新增人格覆写处理器
     ]
