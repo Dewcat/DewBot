@@ -95,7 +95,13 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                 decrease_sanity(opponent_stats['name'], bonus // 2)
                 # 计算伤害及描述
                 roll1 = roll_for_character(player_skill, player_stats)
-                damage, damage_str = compute_cumulative_damage(player_skill['base_value'], roll1)
+                damage, damage_str = compute_cumulative_damage(
+                    player_skill['base_value'], 
+                    roll1,
+                    skill_alv=player_skill.get('alv', 0),
+                    target_dlv=opponent_stats.get('dlv', 0),
+                    target_vul=opponent_stats.get('vul', 0)
+                )
                 opponent_stats['health'] -= damage
                 update_character_health(opponent_stats['name'], opponent_stats['health'])
                 msg = (
@@ -109,7 +115,7 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                     new_sanity = increase_sanity(player_stats['name'], 10)
                     msg += (
                         f"\n{opponent_stats['name']} 倒下了\n"
-                        f"{player_stats['name']} 回复 10 点理智，当前理智为 {new_sanity}"
+                        f"{player_stats['name']} 回复 10 点理智"
                     )
                 await update.message.reply_text(msg)
                 break
@@ -123,14 +129,20 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                 increase_sanity(opponent_stats['name'], bonus)
                 decrease_sanity(player_stats['name'], bonus // 2)
                 roll2 = roll_for_character(opponent_skill, opponent_stats)
-                damage, damage_str = compute_cumulative_damage(opponent_skill['base_value'], roll2)
+                damage, damage_str = compute_cumulative_damage(
+                    opponent_skill['base_value'], 
+                    roll2,
+                    skill_alv=opponent_skill.get('alv', 0),
+                    target_dlv=player_stats.get('dlv', 0),
+                    target_vul=player_stats.get('vul', 0)
+                )
                 player_stats['health'] -= damage
                 update_character_health(player_stats['name'], player_stats['health'])
                 msg = (
                     f'{opponent_stats["name"]}: {opponent_skill["name"]}: {damage_str}\n'
                     f"{opponent_stats['name']} 胜利，造成 {damage} 点伤害\n"
                     f"{opponent_stats['name']} 回复 {bonus} 点理智，\n"
-                    f"{player_stats['name']} 失去 {bonus // 2} 点理智，当前理智为 {get_character_sanity(player_stats['name'])}"
+                    f"{player_stats['name']} 失去 {bonus // 2} 点理智"
                 )
                 if player_stats['health'] <= 0:
                     new_sanity = increase_sanity(opponent_stats['name'], 10)

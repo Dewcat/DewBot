@@ -42,19 +42,55 @@ def compute_simple_damage(base_value, rolls):
     description = f"({base_value} + {' + '.join(map(str, rolls))}) = {total}"
     return total, description
 
-def compute_cumulative_damage(base_value, rolls):
+def compute_cumulative_damage(base_value, rolls, skill_alv=0, target_dlv=0, target_vul=0):
     """
-    累加计算：每段伤害累计
+    累加计算：每段伤害累计，并应用属性乘数
     例如：对 roll=[3, 5, 2] 及 base_value=30，
          计算：(30+3) + (30+3+5) + (30+3+5+2)
-    返回：(总伤害, 描述字符串)
+         然后应用公式：原始伤害 * (100+技能alv*10)% * (100-目标dlv*10)% * (100+目标vul*10)%
+    
+    参数:
+      base_value: 基础伤害值
+      rolls: 骰子结果列表
+      skill_alv: 攻击技能的alv值
+      target_dlv: 目标角色的dlv值
+      target_vul: 目标角色的vul值(正值为易伤，负值为守护)
+    
+    返回:
+      (最终伤害值, 描述字符串)
     """
-    total = 0
+    # 计算原始累加伤害
+    raw_total = 0
     parts = []
     cumulative = base_value
     for i, r in enumerate(rolls):
         cumulative += r
-        total += cumulative
+        raw_total += cumulative
         parts.append(f"({base_value} + {' + '.join(map(str, rolls[:i+1]))})")
-    description = " + ".join(parts) + f" = {total}"
-    return total, description
+    
+    damage_desc = " + ".join(parts) + f" = {raw_total}"
+    
+    # 应用属性乘数
+    alv_multiplier = (100 + skill_alv * 10) / 100
+    dlv_multiplier = (100 - target_dlv * 10) / 100
+    vul_multiplier = (100 + target_vul * 10) / 100
+    
+    # 计算最终伤害
+    final_damage = int(raw_total * alv_multiplier * dlv_multiplier * vul_multiplier)
+    
+    # 组织详细描述
+    modifiers_desc = []
+    if skill_alv != 0:
+        modifiers_desc.append(f"技能攻击等级加成: {alv_multiplier:.1f}x")
+    if target_dlv != 0:
+        modifiers_desc.append(f"角色防御等级减免: {dlv_multiplier:.1f}x")
+    if target_vul != 0:
+        status = "易伤" if target_vul > 0 else "守护"
+        modifiers_desc.append(f"{status}效果: {vul_multiplier:.1f}x")
+    
+    # 如果有修正因子，添加到描述中
+    if modifiers_desc:
+        modifiers_text = " * ".join(modifiers_desc)
+        damage_desc += f"\n原始伤害 {raw_total} * {modifiers_text} = {final_damage}"
+    
+    return final_damage, damage_desc

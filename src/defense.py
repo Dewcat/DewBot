@@ -49,11 +49,6 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
     opponent_stats = info.get("opponent_stats")
     opponent_skill = info.get("opponent_skill")
 
-    print(f'player_stats: {player_stats}')
-    print(f'opponent_stats: {opponent_stats}')
-    print(f'player_skill: {player_skill}')
-    print(f'opponent_skill: {opponent_skill}')
-
     if not player_stats or not opponent_stats or not player_skill or not opponent_skill:
         await update.message.reply_text('角色或技能信息无效。')
         return ConversationHandler.END
@@ -61,8 +56,25 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
     # 使用 compute_cumulative_damage 分别计算双方伤害和描述
     roll1 = roll_for_character(player_skill, player_stats)
     roll2 = roll_for_character(opponent_skill, opponent_stats)
-    total1, desc1 = compute_cumulative_damage(player_skill['base_value'], roll1)
-    total2, desc2 = compute_cumulative_damage(opponent_skill['base_value'], roll2)
+    
+    # 防守方的计算
+    total1, desc1 = compute_cumulative_damage(
+        player_skill['base_value'], 
+        roll1,
+        skill_alv=player_skill.get('alv', 0),
+        target_dlv=0,  # 防御时不计算攻击方的dlv
+        target_vul=0   # 防御时不计算攻击方的vul
+    )
+    
+    # 进攻方的计算
+    total2, desc2 = compute_cumulative_damage(
+        opponent_skill['base_value'], 
+        roll2,
+        skill_alv=opponent_skill.get('alv', 0),
+        target_dlv=player_stats.get('dlv', 0),
+        target_vul=player_stats.get('vul', 0)
+    )
+    
     player_roll_str = f"{player_stats['name']}: {player_skill['name']}: {desc1}"
     opponent_roll_str = f"{opponent_stats['name']}: {opponent_skill['name']}: {desc2}"
     result_message = f"{player_roll_str}\n{opponent_roll_str}"

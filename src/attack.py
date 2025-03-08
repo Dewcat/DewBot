@@ -45,8 +45,16 @@ async def attack_get_target(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
     roll = roll_for_character(attacker_skill, attacker_stats)
-    # 采用累加计算生成伤害和描述字符串
-    total, damage_str = compute_cumulative_damage(attacker_skill['base_value'], roll)
+    
+    # 使用新的累加伤害计算，传入所有需要的属性参数
+    total, damage_str = compute_cumulative_damage(
+        attacker_skill['base_value'], 
+        roll,
+        skill_alv=attacker_skill.get('alv', 0),
+        target_dlv=target_stats.get('dlv', 0),
+        target_vul=target_stats.get('vul', 0)
+    )
+    
     attacker_line = f"{attacker_stats['name']}: {attacker_skill['name']}: {damage_str}"
 
     new_health = target_stats['health'] - total
@@ -54,14 +62,14 @@ async def attack_get_target(update: Update, context: CallbackContext) -> int:
 
     result_message = (
         f"{attacker_line}\n"
-        f"对{target_stats['name']}造成 {damage_str} 点伤害"
+        f"对{target_stats['name']}造成 {total} 点伤害"
     )
     if new_health <= 0:
         result_message += f"\n{target_stats['name']} 倒下了"
         current_sanity = attacker_stats.get('sanity', 0)
-        new_sanity = current_sanity + 10
+        new_sanity = min(current_sanity + 10,45)
         update_character_sanity(attacker_stats['name'], new_sanity)
-        result_message += f"\n{attacker_stats['name']} 回复 10 点理智，当前理智为 {new_sanity}"
+        result_message += f"\n{attacker_stats['name']} 回复 10 点理智"
     await update.message.reply_text(result_message)
     return ConversationHandler.END
 
