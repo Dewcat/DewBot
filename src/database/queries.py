@@ -59,7 +59,7 @@ def reset_character_stats():
     db = DatabaseConnection('game.db')
     db.connect()
     cursor = db.connection.cursor()
-    cursor.execute("UPDATE characters SET health = initial_health, strength = 0, weakness = 0, sanity = 0, vul = 0")
+    cursor.execute("UPDATE characters SET health = initial_health, strength = 0, weakness = 0, sanity = 0, vul = 0, stagger_ed = 0, is_stagger = 0")
     db.connection.commit()
     db.close()
 
@@ -244,12 +244,13 @@ def get_character_panels():
     db.connect()
     cursor = db.connection.cursor()
     
+    # 添加 is_stagger 到查询字段中
     for character_name in characters:
-        cursor.execute("SELECT name, health, initial_health, sanity, strength, weakness, vul, persona FROM characters WHERE name=?", 
+        cursor.execute("SELECT name, health, initial_health, sanity, strength, weakness, vul, persona, is_stagger FROM characters WHERE name=?", 
                      (character_name,))
         row = cursor.fetchone()
         if row:
-            name, health, max_health, sanity, strength, weakness, vul, persona = row
+            name, health, max_health, sanity, strength, weakness, vul, persona, is_stagger = row
             
             panel = {
                 'name': character_icons.get(name, name),  # 使用带图标的名称
@@ -257,7 +258,8 @@ def get_character_panels():
                 'health': f"{health}/{max_health}",
                 'sanity': sanity,
                 'can_fight': health > 0,  # 添加战斗状态标记，体力为0则无法战斗
-                'persona': persona  # 添加角色当前使用的人格信息
+                'persona': persona,  # 添加角色当前使用的人格信息
+                'is_stagger': is_stagger  # 添加混乱状态
             }
             
             # 只有当强壮值不为0时才添加
@@ -353,3 +355,55 @@ def reset_character_to_default(character_name):
     db.close()
     
     return True
+
+def update_character_stagger_state(character_name, stagger_ed=None, is_stagger=None):
+    """
+    更新角色的混乱状态
+    
+    参数:
+        character_name: 角色名称
+        stagger_ed: 已触发的混乱阈值数量
+        is_stagger: 混乱状态（0-3）
+    
+    返回:
+        更新是否成功
+    """
+    print(f"调试 - 更新角色混乱状态: character_name={character_name}, stagger_ed={stagger_ed}, is_stagger={is_stagger}")
+    
+    if stagger_ed is None and is_stagger is None:
+        print("调试 - 没有要更新的字段")
+        return False  # 没有要更新的字段
+    
+    db = DatabaseConnection('game.db')
+    db.connect()
+    cursor = db.connection.cursor()
+    
+    query_parts = []
+    params = []
+    
+    if stagger_ed is not None:
+        query_parts.append("stagger_ed = ?")
+        params.append(stagger_ed)
+    
+    if is_stagger is not None:
+        query_parts.append("is_stagger = ?")
+        params.append(is_stagger)
+    
+    params.append(character_name)  # WHERE 条件的参数
+    
+    query = f"UPDATE characters SET {', '.join(query_parts)} WHERE name = ?"
+    print(f"调试 - SQL语句: {query}, 参数: {params}")
+    
+    try:
+        cursor.execute(query, params)
+        db.connection.commit()
+        rows_affected = cursor.rowcount
+        print(f"调试 - 更新结果: 影响了{rows_affected}行")
+        success = rows_affected > 0
+    except Exception as e:
+        print(f"调试 - 数据库错误: {e}")
+        success = False
+    finally:
+        db.close()
+    
+    return success

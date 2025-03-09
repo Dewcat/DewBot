@@ -146,6 +146,7 @@ async def panel(update: Update, context: CallbackContext) -> None:
     使用方式: /panel
     """
     from database.queries import get_character_panels
+    from game.stagger import get_stagger_description  # 导入混乱状态描述函数
     
     panels = get_character_panels()
     
@@ -161,6 +162,11 @@ async def panel(update: Update, context: CallbackContext) -> None:
         # 添加覆写人格信息
         if panel.get('persona'):
             message += f"【人格：{panel['persona']}】\n"
+        
+        # 显示混乱状态
+        if panel.get('is_stagger', 0) > 0:
+            stagger_desc = get_stagger_description(panel['is_stagger'])
+            message += f"{stagger_desc}\n"
         
         # 显示战斗状态
         if not panel['can_fight']:

@@ -26,28 +26,44 @@ def get_info(*, player_name=None, player_skill_name=None, opponent_name=None, op
     if player_name:
         stats = get_character_stats(player_name)
         if stats:
+            print(f"\n调试 - 获取角色信息: player_name={player_name}")
+            print(f"调试 - 原始数据: {stats}")
             result["player_stats"] = {
                 'name': stats[1],
                 'health': stats[2],
+                'initial_health': stats[3],  # 添加初始生命值
                 'strength': stats[4],
                 'weakness': stats[5],
                 'sanity': stats[6],
                 'vul': stats[7],
-                'dlv': stats[8]
+                'dlv': stats[8],
+                'stagger_rate': stats[9],  # 混乱阈值
+                'stagger_num': stats[10],  # 混乱阈值个数
+                'stagger_ed': stats[11],   # 已触发的混乱阈值数
+                'is_stagger': stats[12]    # 当前混乱状态
             }
+            print(f"调试 - 混乱相关属性: stagger_rate={stats[9]}, stagger_num={stats[10]}, stagger_ed={stats[11]}, is_stagger={stats[12]}")
     
     if opponent_name:
         stats = get_character_stats(opponent_name)
         if stats:
+            print(f"\n调试 - 获取角色信息: opponent_name={opponent_name}")
+            print(f"调试 - 原始数据: {stats}")
             result["opponent_stats"] = {
                 'name': stats[1],
                 'health': stats[2],
+                'initial_health': stats[3],  # 添加初始生命值
                 'strength': stats[4],
                 'weakness': stats[5],
                 'sanity': stats[6],
                 'vul': stats[7],
-                'dlv': stats[8]
+                'dlv': stats[8],
+                'stagger_rate': stats[9],  # 混乱阈值
+                'stagger_num': stats[10],  # 混乱阈值个数
+                'stagger_ed': stats[11],   # 已触发的混乱阈值数
+                'is_stagger': stats[12]    # 当前混乱状态
             }
+            print(f"调试 - 混乱相关属性: stagger_rate={stats[9]}, stagger_num={stats[10]}, stagger_ed={stats[11]}, is_stagger={stats[12]}")
     
     if player_skill_name:
         skill = get_skill_info(player_skill_name)

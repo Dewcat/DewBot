@@ -4,7 +4,8 @@ from telegram import Update
 from game.dice import DiceGame, roll_for_character
 from database.queries import update_character_health, get_character_sanity
 from get_info import get_info
-from game.dice import compute_cumulative_damage  # 修改后的导入
+from game.dice import compute_cumulative_damage
+from game.stagger import check_stagger, get_stagger_multiplier, clear_stagger  # 新增导入
 
 # 定义对话状态常量
 PLAYER1_NAME, PLAYER1_SKILL, PLAYER2_NAME, PLAYER2_SKILL = range(4)
@@ -21,6 +22,15 @@ async def player1_name(update: Update, context: CallbackContext) -> int:
         return PLAYER1_NAME
     battle = context.bot_data.setdefault('battle', {})
     battle['player1_name'], battle['player1_skill'] = args
+    
+    # 检查角色是否处于混乱状态
+    info = get_info(player_name=battle['player1_name'])
+    player_stats = info.get("player_stats")
+    
+    if player_stats and player_stats.get('is_stagger', 0) > 0:
+        await update.message.reply_text(f"{player_stats['name']} 处于混乱状态，无法参与拼点。请先使用其他角色或等待混乱状态解除。")
+        return ConversationHandler.END
+    
     await update.message.reply_text('敌方设置完成。请提供你的角色名称和技能名称。格式: 角色名 技能名')
     return PLAYER2_NAME
 
@@ -31,6 +41,14 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
         return PLAYER2_NAME
     battle = context.bot_data.setdefault('battle', {})
     battle['player2_name'], battle['player2_skill'] = args
+
+    # 检查角色是否处于混乱状态
+    info = get_info(player_name=battle['player2_name'])
+    player_stats = info.get("player_stats")
+    
+    if player_stats and player_stats.get('is_stagger', 0) > 0:
+        await update.message.reply_text(f"{player_stats['name']} 处于混乱状态，无法参与拼点。请先使用其他角色或等待混乱状态解除。")
+        return ConversationHandler.END
 
     player_name = battle['player1_name']
     player_skill_name = battle['player1_skill']
@@ -102,14 +120,33 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                     target_dlv=opponent_stats.get('dlv', 0),
                     target_vul=opponent_stats.get('vul', 0)
                 )
+                previous_health = opponent_stats['health']
                 opponent_stats['health'] -= damage
-                update_character_health(opponent_stats['name'], opponent_stats['health'])
+                new_health = opponent_stats['health']
+                update_character_health(opponent_stats['name'], new_health)
+                
+                # 检查是否触发混乱状态
+                new_stagger, new_stagger_ed, stagger_message = check_stagger(
+                    opponent_stats['name'],
+                    new_health,
+                    previous_health,
+                    opponent_stats.get('max_health', previous_health),
+                    opponent_stats.get('stagger_rate', 0),
+                    opponent_stats.get('stagger_num', 0),
+                    opponent_stats.get('stagger_ed', 0),
+                    opponent_stats.get('is_stagger', 0)
+                )
+                
                 msg = (
                     f'{player_stats["name"]}: {player_skill["name"]}: {damage_str}\n'
                     f"{player_stats['name']} 胜利，造成 {damage} 点伤害\n"
-                    f"{player_stats['name']} 回复 {bonus} 点理智，当前理智为 {get_character_sanity(player_stats['name'])}\n"
+                    f"{player_stats['name']} 回复 {bonus} 点理智\n"
                     f"{opponent_stats['name']} 失去 {bonus // 2} 点理智"
                 )
+                
+                if stagger_message:
+                    msg += f"\n{stagger_message}"
+                
                 # 如果对手血量归零，则倒下后额外为攻击者回复10点理智
                 if opponent_stats['health'] <= 0:
                     new_sanity = increase_sanity(player_stats['name'], 10)
@@ -136,14 +173,33 @@ async def player2_name(update: Update, context: CallbackContext) -> int:
                     target_dlv=player_stats.get('dlv', 0),
                     target_vul=player_stats.get('vul', 0)
                 )
+                previous_health = player_stats['health']
                 player_stats['health'] -= damage
-                update_character_health(player_stats['name'], player_stats['health'])
+                new_health = player_stats['health']
+                update_character_health(player_stats['name'], new_health)
+                
+                # 检查是否触发混乱状态
+                new_stagger, new_stagger_ed, stagger_message = check_stagger(
+                    player_stats['name'],
+                    new_health,
+                    previous_health,
+                    player_stats.get('max_health', previous_health),
+                    player_stats.get('stagger_rate', 0),
+                    player_stats.get('stagger_num', 0),
+                    player_stats.get('stagger_ed', 0),
+                    player_stats.get('is_stagger', 0)
+                )
+                
                 msg = (
                     f'{opponent_stats["name"]}: {opponent_skill["name"]}: {damage_str}\n'
                     f"{opponent_stats['name']} 胜利，造成 {damage} 点伤害\n"
-                    f"{opponent_stats['name']} 回复 {bonus} 点理智，\n"
+                    f"{opponent_stats['name']} 回复 {bonus} 点理智\n"
                     f"{player_stats['name']} 失去 {bonus // 2} 点理智"
                 )
+                
+                if stagger_message:
+                    msg += f"\n{stagger_message}"
+                
                 if player_stats['health'] <= 0:
                     new_sanity = increase_sanity(opponent_stats['name'], 10)
                     msg += (
