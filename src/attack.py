@@ -95,14 +95,14 @@ async def attack_get_target(update: Update, context: CallbackContext) -> int:
     # 检查是否触发混乱状态
     print(f"调试 - 检查是否触发新的混乱状态")
     # 获取初始生命值作为最大生命值
-    max_health = target_stats.get('initial_health', previous_health)
-    print(f"调试 - 最大生命值: {max_health}")
+    initial_health = target_stats.get('initial_health', previous_health)
+    print(f"调试 - 最大生命值: {initial_health}")
     
     new_stagger, new_stagger_ed, stagger_message = check_stagger(
         target_stats['name'],
         new_health,
         previous_health,
-        max_health,
+        initial_health,
         target_stats.get('stagger_rate', 0),
         target_stats.get('stagger_num', 0),
         target_stats.get('stagger_ed', 0),

@@ -20,5 +20,8 @@
         "terminal.ansiRed": "#CF6A4C",
         "terminal.ansiWhite": "#A7A7A7",
         "terminal.ansiYellow": "#F9EE98"
-    }
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python-envs.pythonProjects": []
 }

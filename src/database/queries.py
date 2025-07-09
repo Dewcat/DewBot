@@ -250,12 +250,12 @@ def get_character_panels():
                      (character_name,))
         row = cursor.fetchone()
         if row:
-            name, health, max_health, sanity, strength, weakness, vul, persona, is_stagger = row
+            name, health, initial_health, sanity, strength, weakness, vul, persona, is_stagger = row
             
             panel = {
                 'name': character_icons.get(name, name),  # 使用带图标的名称
                 'original_name': name,  # 保留原始名称，以便后续处理
-                'health': f"{health}/{max_health}",
+                'health': f"{health}/{initial_health}",
                 'sanity': sanity,
                 'can_fight': health > 0,  # 添加战斗状态标记，体力为0则无法战斗
                 'persona': persona,  # 添加角色当前使用的人格信息
@@ -312,20 +312,20 @@ def set_character_persona(character_name, persona_id):
     db.connect()
     cursor = db.connection.cursor()
     
-    # 查询人格数据
-    cursor.execute("SELECT name, health, initial_health, dlv FROM characters WHERE id = ?", (persona_id,))
+    # 查询人格数据，包括混乱相关属性
+    cursor.execute("SELECT name, health, initial_health, dlv, stagger_rate, stagger_num FROM characters WHERE id = ?", (persona_id,))
     persona = cursor.fetchone()
     
     if not persona:
         db.close()
         return None
     
-    persona_name, health, initial_health, dlv = persona
+    persona_name, health, initial_health, dlv, stagger_rate, stagger_num = persona
     
-    # 更新角色数据，设置为所选人格的数据
+    # 更新角色数据，设置为所选人格的数据，同时重置混乱状态
     cursor.execute(
-        "UPDATE characters SET health = ?, initial_health = ?, dlv = ?, persona = ? WHERE name = ?", 
-        (health, initial_health, dlv, persona_name, character_name)
+        "UPDATE characters SET health = ?, initial_health = ?, dlv = ?, stagger_rate = ?, stagger_num = ?, stagger_ed = 0, is_stagger = 0, persona = ? WHERE name = ?", 
+        (health, initial_health, dlv, stagger_rate, stagger_num, persona_name, character_name)
     )
     
     db.connection.commit()
@@ -336,7 +336,7 @@ def set_character_persona(character_name, persona_id):
 def reset_character_to_default(character_name):
     """
     将角色重置为默认状态
-    体力和初始体力设为100，dlv归0，persona清空
+    体力和初始体力设为100，dlv归0，persona清空，混乱相关属性重置
     
     参数:
       character_name: 要重置的角色名
@@ -345,9 +345,9 @@ def reset_character_to_default(character_name):
     db.connect()
     cursor = db.connection.cursor()
     
-    # 重置角色状态
+    # 重置角色状态，包括混乱相关属性
     cursor.execute(
-        "UPDATE characters SET health = 100, initial_health = 100, dlv = 0, persona = NULL WHERE name = ?", 
+        "UPDATE characters SET health = 100, initial_health = 100, dlv = 0, stagger_rate = 0.3, stagger_num = 3, stagger_ed = 0, is_stagger = 0, persona = NULL WHERE name = ?", 
         (character_name,)
     )
     

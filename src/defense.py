@@ -116,8 +116,8 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
         result_message += f"\n{player_stats['name']} 的防御被破坏，受到 {damage} 点伤害"
         
         # 获取初始生命值作为最大生命值
-        max_health = player_stats.get('initial_health', previous_health)
-        print(f"调试 - 最大生命值: {max_health}")
+        initial_health = player_stats.get('initial_health', previous_health)
+        print(f"调试 - 最大生命值: {initial_health}")
         
         # 检查是否触发混乱状态
         print(f"调试 - 检查是否触发混乱状态")
@@ -125,7 +125,7 @@ async def player2_name_defense(update: Update, context: CallbackContext) -> int:
             player_stats['name'],
             new_health,
             previous_health,
-            max_health,
+            initial_health,
             player_stats.get('stagger_rate', 0),
             player_stats.get('stagger_num', 0),
             player_stats.get('stagger_ed', 0),

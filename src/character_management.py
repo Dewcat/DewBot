@@ -6,9 +6,60 @@ from game.sanity import increase_sanity as incSanity, decrease_sanity as decSani
 # 定义会话状态
 PERSONA_SELECT = 0
 
-async def reset(update: Update, context: CallbackContext) -> None:
+async def reset_all(update: Update, context: CallbackContext) -> None:
     reset_character_stats()
-    await update.message.reply_text('角色状态已恢复。')
+    await update.message.reply_text('所有角色状态已恢复。')
+
+async def reset(update: Update, context: CallbackContext) -> None:
+    """
+    重置指定角色的状态。格式: /reset 角色名
+    将角色的所有状态恢复到初始值（体力、理智、强壮、虚弱、易伤等）
+    """
+    args = context.args
+    if len(args) != 1:
+        await update.message.reply_text('请提供角色名称。格式: /reset 角色名')
+        return
+
+    character_name = args[0]
+    
+    # 检查角色是否存在
+    from database.queries import get_character_stats
+    character_stats = get_character_stats(character_name)
+    if not character_stats:
+        await update.message.reply_text(f'未找到角色 {character_name}')
+        return
+    
+    # 重置单个角色状态
+    from database.db_connection import DatabaseConnection
+    db = DatabaseConnection('game.db')
+    db.connect()
+    cursor = db.connection.cursor()
+    
+    try:
+        # 重置所有相关状态
+        cursor.execute("""
+            UPDATE characters 
+            SET health = initial_health, 
+                strength = 0, 
+                weakness = 0, 
+                sanity = 0, 
+                vul = 0, 
+                stagger_ed = 0, 
+                is_stagger = 0 
+            WHERE name = ?
+        """, (character_name,))
+        
+        db.connection.commit()
+        
+        if cursor.rowcount > 0:
+            await update.message.reply_text(f'{character_name} 的状态已重置到初始值')
+        else:
+            await update.message.reply_text(f'重置 {character_name} 的状态失败')
+            
+    except Exception as e:
+        await update.message.reply_text(f'重置角色状态时发生错误: {str(e)}')
+    finally:
+        db.close()
 
 async def strength(update: Update, context: CallbackContext) -> None:
     args = context.args
@@ -96,7 +147,7 @@ async def sanity(update: Update, context: CallbackContext) -> None:
         new_sanity = decSanity(character_name, -sanity_change)
         action = "减少"
 
-    await update.message.reply_text(f'{character_name} 的理智值{action}了 {abs(sanity_change)} 点，现在的理智值是 {new_sanity}。')
+    await update.message.reply_text(f'{character_name} 的理智值{action}了 {abs(sanity_change)} 点。')
 
 async def vul(update: Update, context: CallbackContext) -> None:
     """
@@ -212,8 +263,8 @@ async def persona_start(update: Update, context: CallbackContext) -> int:
     message += "0. 初始人格\n"
     
     for i, persona in enumerate(personas, 1):
-        persona_id, name, health, max_health, dlv = persona
-        message += f"{i}. {name} (体力: {health}/{max_health}, DLV: {dlv})\n"
+        persona_id, name, health, initial_health, dlv = persona
+        message += f"{i}. {name} (体力: {health}/{initial_health}, DLV: {dlv})\n"
     
     # 保存人格ID列表以便后续查找
     context.user_data['persona_list'] = [p[0] for p in personas]
@@ -272,6 +323,59 @@ async def persona_cancel(update: Update, context: CallbackContext) -> int:
         
     return ConversationHandler.END
 
+async def health(update: Update, context: CallbackContext) -> None:
+    """
+    调整角色的当前生命值。格式: /health 角色名 数值
+    数值正数表示回复，负数表示扣除。
+    """
+    args = context.args
+    if len(args) != 2:
+        await update.message.reply_text('请提供角色名称和调整的生命值。格式: /health 角色名 数值（正为回复、负为扣除）')
+        return
+
+    character_name, health_change = args
+    try:
+        health_change = int(health_change)
+    except ValueError:
+        await update.message.reply_text('生命值必须为整数！')
+        return
+
+    # 获取当前状态
+    from database.queries import get_character_stats, update_character_health
+    before_stats = get_character_stats(character_name)
+    if not before_stats:
+        await update.message.reply_text(f'未找到角色 {character_name}')
+        return
+    
+    current_health = int(before_stats[2])  # 确保health是整数类型
+    initial_health = int(before_stats[3])  # initial_health是第3列
+    new_health = current_health + health_change
+    
+    # 限制生命值范围（0到最大生命值）
+    if new_health > initial_health:
+        new_health = initial_health
+    elif new_health < 0:
+        new_health = 0
+    
+    # 更新生命值
+    update_character_health(character_name, new_health)
+    
+    if health_change > 0:
+        action = "回复"
+    else:
+        action = "扣除"
+    
+    # 检查是否达到上限或下限
+    if new_health == initial_health and current_health + health_change > initial_health:
+        await update.message.reply_text(f'{character_name} 的生命值{action}了 {abs(health_change)} 点')
+    elif new_health == 0 and current_health + health_change < 0:
+        await update.message.reply_text(f'{character_name} 的生命值{action}了 {abs(health_change)} 点')
+    else:
+        await update.message.reply_text(f'{character_name} 的生命值{action}了 {abs(health_change)} 点')
+
+def get_reset_all_handler():
+    return CommandHandler("reset_all", reset_all)
+
 def get_reset_handler():
     return CommandHandler("reset", reset)
 
@@ -300,16 +404,21 @@ def get_persona_handler():
         fallbacks=[CommandHandler("cancel", persona_cancel)]
     )
 
+def get_health_handler():
+    return CommandHandler("health", health)
+
 def get_character_management_handlers():
     """
     返回一个列表，包含各种角色管理指令处理器
     """
     return [
-        get_reset_handler(), 
+        get_reset_all_handler(),  # 重置所有角色
+        get_reset_handler(),      # 重置单个角色
         get_strength_handler(), 
         get_weakness_handler(), 
         get_sanity_handler(),
         get_vul_handler(),
         get_panel_handler(),
-        get_persona_handler()  # 新增人格覆写处理器
+        get_persona_handler(),    # 人格覆写处理器
+        get_health_handler()      # 生命值调整处理器
     ]

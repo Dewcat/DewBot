@@ -1,11 +1,11 @@
 from database.queries import update_character_stagger_state
 
-def calculate_stagger_thresholds(max_health, stagger_rate, stagger_num, stagger_ed):
+def calculate_stagger_thresholds(initial_health, stagger_rate, stagger_num, stagger_ed):
     """
     计算角色的混乱阈值列表
     
     参数:
-        max_health: 角色最大生命值
+        initial_health: 角色最大生命值
         stagger_rate: 混乱阈值比例（如0.3，表示每个阈值相隔30%生命值）
         stagger_num: 混乱阈值个数（如2表示有两个阈值点）
         stagger_ed: 已触发的混乱阈值数
@@ -13,19 +13,17 @@ def calculate_stagger_thresholds(max_health, stagger_rate, stagger_num, stagger_
     返回:
         剩余的混乱阈值列表（从高到低排序）
     """
-    print(f"调试 - 计算混乱阈值原始参数: max_health={max_health}, stagger_rate={stagger_rate}, stagger_num={stagger_num}, stagger_ed={stagger_ed}")
+    print(f"调试 - 计算混乱阈值原始参数: initial_health={initial_health}, stagger_rate={stagger_rate}, stagger_num={stagger_num}, stagger_ed={stagger_ed}")
     
     # 检测并自动修正 stagger_rate 和 stagger_num 如果它们看起来被传反了
     # stagger_rate 应该是小于 1 的小数，stagger_num 应该是正整数
-    if isinstance(stagger_rate, (int, float)) and isinstance(stagger_num, (int, float)):
-        if stagger_rate > 1 and stagger_num < 1:
-            # 它们可能被传反了，交换它们
-            print(f"调试 - 检测到参数可能颠倒，交换 stagger_rate 和 stagger_num")
-            stagger_rate, stagger_num = stagger_num, stagger_rate
+   
+    print(f"调试 - 检测到参数可能颠倒，交换 stagger_rate 和 stagger_num")
+    stagger_rate, stagger_num = stagger_num, stagger_rate
     
     # 确保值为正确类型
     try:
-        max_health = int(max_health) if max_health else 100
+        initial_health = int(initial_health) if initial_health else 100
         
         # stagger_rate 应该是 0-1 之间的小数
         if stagger_rate is not None:
@@ -49,15 +47,15 @@ def calculate_stagger_thresholds(max_health, stagger_rate, stagger_num, stagger_
     thresholds = []
     for i in range(stagger_ed, stagger_num):
         # 计算每个阈值点
-        threshold = int(max_health * (1 - stagger_rate * (i + 1)))
-        print(f"调试 - 计算阈值点 {i+1}: {threshold} = {max_health} * (1 - {stagger_rate} * {i+1})")
+        threshold = int(initial_health * (1 - stagger_rate * (i + 1)))
+        print(f"调试 - 计算阈值点 {i+1}: {threshold} = {initial_health} * (1 - {stagger_rate} * {i+1})")
         if threshold > 0:  # 确保阈值为正数
             thresholds.append(threshold)
     
     print(f"调试 - 计算得到的混乱阈值: {thresholds}")
     return sorted(thresholds, reverse=True)
 
-def check_stagger(character_name, current_health, previous_health, max_health, stagger_rate, stagger_num, stagger_ed, is_stagger):
+def check_stagger(character_name, current_health, previous_health, initial_health, stagger_rate, stagger_num, stagger_ed, is_stagger):
     """
     检查角色是否进入混乱状态
     
@@ -65,7 +63,7 @@ def check_stagger(character_name, current_health, previous_health, max_health, s
         character_name: 角色名称
         current_health: 当前生命值
         previous_health: 受伤前生命值
-        max_health: 最大生命值
+        initial_health: 最大生命值
         stagger_rate: 混乱阈值比例
         stagger_num: 混乱阈值个数
         stagger_ed: 已触发的混乱阈值数
@@ -75,18 +73,18 @@ def check_stagger(character_name, current_health, previous_health, max_health, s
         (新的混乱状态, 新的已触发阈值数, 触发消息)
     """
     print(f"\n调试 - 检查混乱: character_name={character_name}, current_health={current_health}, previous_health={previous_health}")
-    print(f"调试 - 混乱参数: max_health={max_health}, stagger_rate={stagger_rate}, stagger_num={stagger_num}, stagger_ed={stagger_ed}, is_stagger={is_stagger}")
+    print(f"调试 - 混乱参数: initial_health={initial_health}, stagger_rate={stagger_rate}, stagger_num={stagger_num}, stagger_ed={stagger_ed}, is_stagger={is_stagger}")
     
     # 确保使用初始生命值作为最大生命值
-    if max_health is None or max_health <= 0:
-        max_health = 100  # 默认值
-        print(f"调试 - 使用默认最大生命值: {max_health}")
+    if initial_health is None or initial_health <= 0:
+        initial_health = 100  # 默认值
+        print(f"调试 - 使用默认最大生命值: {initial_health}")
     
     if is_stagger > 0:  # 已经处于混乱状态
         print("调试 - 已处于混乱状态，跳过检查")
         return is_stagger, stagger_ed, ""
     
-    thresholds = calculate_stagger_thresholds(max_health, stagger_rate, stagger_num, stagger_ed)
+    thresholds = calculate_stagger_thresholds(initial_health, stagger_rate, stagger_num, stagger_ed)
     if not thresholds:  # 没有剩余的混乱阈值
         print("调试 - 没有剩余的混乱阈值")
         return 0, stagger_ed, ""
